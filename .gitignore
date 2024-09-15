@@ -1,0 +1,4 @@
+*.spv
+*.o
+VulkanRenderer
+.DS_Store
