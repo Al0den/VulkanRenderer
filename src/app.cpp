@@ -6,6 +6,7 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FRCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 
 using namespace vkengine;
 
@@ -16,7 +17,7 @@ struct SimplePushConstantData {
 };
 
 App::App() {
-    loadModels();
+    loadGameObjects();
     createPipelineLayout();
     recreateSwapChain();
     createCommandBuffers();
@@ -35,14 +36,24 @@ void App::run() {
     vkDeviceWaitIdle(device.device());
 }
 
-void App::loadModels() {
+void App::loadGameObjects() {
     std::vector<Model::Vertex> vertices {
         {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
         {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
         {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
     };
 
-    model = std::make_unique<Model>(device, vertices);
+    auto model = std::make_shared<Model>(device, vertices);
+
+    auto triangle = GameObject::createGameObject();
+    triangle.model = model;
+    triangle.color = {0.0f, 0.8f, 0.0f};
+    triangle.transform2d.translation.x = 0.0f;
+    triangle.transform2d.scale = {1.f, 1.0f};
+    triangle.transform2d.rotation = 0.0f;
+
+    gameObjects.push_back(std::move(triangle));
+
 }
 
 void App::createPipelineLayout() {
@@ -93,9 +104,6 @@ void App::freeCommandBuffers() {
 }
 
 void App::recordCommandBuffer(int imageIndex) {
-    static int frame = 0;
-    frame = (frame + 1) % 100;
-
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -129,22 +137,26 @@ void App::recordCommandBuffer(int imageIndex) {
     vkCmdSetViewport(commandBuffers[imageIndex], 0, 1, &viewport);
     vkCmdSetScissor(commandBuffers[imageIndex], 0, 1, &scissor);
 
-    pipeline->bind(commandBuffers[imageIndex]);
-    model->bind(commandBuffers[imageIndex]);
-
-    for (int j=0; j<4; j++) {
-        SimplePushConstantData push{};
-        push.offset = {-0.5f + frame * 0.002f, -0.4f + j * 0.25f};
-        push.color = {0.0f, 0.0f, 0.2f + 0.2f * j};
-        vkCmdPushConstants(commandBuffers[imageIndex], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-        model->draw(commandBuffers[imageIndex]);
-    }
-
+    renderGameObjects(commandBuffers[imageIndex]);
 
     vkCmdEndRenderPass(commandBuffers[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {
         throw std::runtime_error("Failed to record command buffer");
+    }
+}
+
+void App::renderGameObjects(VkCommandBuffer commandBuffer) {
+    pipeline->bind(commandBuffer);
+
+    for (auto &obj : gameObjects) {
+        SimplePushConstantData push{};
+        push.transform = obj.transform2d.mat2();
+        push.offset = obj.transform2d.translation;
+        push.color = obj.color;
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+        obj.model->bind(commandBuffer);
+        obj.model->draw(commandBuffer);
     }
 }
 
