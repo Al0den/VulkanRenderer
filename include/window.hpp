@@ -20,11 +20,16 @@ class Window {
         Window(const Window &) = delete;
         Window &operator=(const Window &) = delete;
 
+        bool wasWindowResized() { return framebufferResized; }
+        void resetWindowResizedFlag() { framebufferResized = false; }
+
     private:
+        static void framebufferResizeCallback(GLFWwindow *window, int width, int height);
         void initWindow();
 
-        const int width;
-        const int height;
+        int width;
+        int height;
+        bool framebufferResized = false;
 
         std::string windowName;
 

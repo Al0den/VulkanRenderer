@@ -17,7 +17,7 @@ class App {
         ~App();
 
         App(const App &) = delete;
-        void operator=(const App &) = delete;
+        App &operator=(const App &) = delete;
 
         static constexpr int WIDTH = 800;
         static constexpr int HEIGHT = 600;
@@ -30,10 +30,12 @@ class App {
         void createPipeline();
         void createCommandBuffers();
         void drawFrame();
+        void recreateSwapChain();
+        void recordCommandBuffer(int imageIndex);
 
         Window window{WIDTH, HEIGHT, "Vulkan"};
         Device device{window};
-        SwapChain swapChain{device, window.getExtent()};
+        std::unique_ptr<SwapChain> swapChain;
         std::unique_ptr<Pipeline> pipeline;
         VkPipelineLayout pipelineLayout;
         std::vector<VkCommandBuffer> commandBuffers;
