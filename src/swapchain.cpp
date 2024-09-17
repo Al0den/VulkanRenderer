@@ -6,9 +6,11 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
-#include <set>
 #include <stdexcept>
 
+#define FIFO_PRESENT_MODE
+//#define IMMEDIATE_PRESENT_MODE
+//#define MAILBOX_PRESENT_MODE
 namespace vkengine {
 
 SwapChain::SwapChain(Device &deviceRef, VkExtent2D extent) : device{deviceRef}, windowExtent{extent} { init(); }
@@ -350,22 +352,27 @@ VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfac
 }
 
 VkPresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes) {
+#ifdef MAILBOX_PRESENT_MODE
     for (const auto &availablePresentMode : availablePresentModes) {
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
             std::cout << "Present mode: Mailbox" << std::endl;
             return availablePresentMode;
         }
     }
-
-    // for (const auto &availablePresentMode : availablePresentModes) {
-    //   if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
-    //     std::cout << "Present mode: Immediate" << std::endl;
-    //     return availablePresentMode;
-    //   }
-    // }
-
+#endif
+#ifdef IMMEDIATE_PRESENT_MODE
+    for (const auto &availablePresentMode : availablePresentModes) {
+        if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+            std::cout << "Present mode: Immediate" << std::endl;
+            return availablePresentMode;
+        }
+    }
+#endif
+#ifdef FIFO_PRESENT_MODE
     std::cout << "Present mode: V-Sync" << std::endl;
     return VK_PRESENT_MODE_FIFO_KHR;
+#endif
+    throw std::runtime_error("failed to find suitable present mode!");
 }
 
 VkExtent2D SwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
@@ -381,8 +388,7 @@ VkExtent2D SwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilit
 }
 
 VkFormat SwapChain::findDepthFormat() {
-    return device.findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL,
-                                      VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    return device.findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-} // namespace vkengine
+}

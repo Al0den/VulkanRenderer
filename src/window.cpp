@@ -11,6 +11,17 @@ Window::~Window() {
     glfwTerminate();
 }
 
+void closeCallback(GLFWwindow* window) {
+    glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (key == GLFW_KEY_W && action == GLFW_PRESS && mods == GLFW_MOD_SUPER)
+    {
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
+}
 void Window::initWindow() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -19,6 +30,11 @@ void Window::initWindow() {
     window = glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+
+    glfwSetWindowCloseCallback(getWindow(), closeCallback);
+    glfwMakeContextCurrent(getWindow());
+
+    glfwSetKeyCallback(window, keyCallback);
 }
 
 void Window::createWindowSurface(VkInstance instance, VkSurfaceKHR *surface) {
