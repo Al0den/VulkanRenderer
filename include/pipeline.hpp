@@ -7,7 +7,6 @@
 #include "device.hpp"
 #include "model.hpp"
 
-
 namespace vkengine {
 
 struct PipelineConfigInfo {
