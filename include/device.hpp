@@ -3,7 +3,6 @@
 
 #include "window.hpp"
 
-#include <string>
 #include <vector>
 
 namespace vkengine {

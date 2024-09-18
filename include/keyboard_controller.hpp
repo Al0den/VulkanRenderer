@@ -1,7 +1,6 @@
 #pragma once
 
 #include "game_object.hpp"
-#include "window.hpp"
 
 namespace vkengine {
 

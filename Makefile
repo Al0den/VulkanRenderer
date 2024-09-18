@@ -1,6 +1,6 @@
 
 CXX = g++
-CXXFLAGS = -std=c++20 
+CXXFLAGS = -std=c++20 -O2
 LDFLAGS = $(pkg-config --libs vulkan) -lglfw -lvulkan.1.3.290
 
 GLSLC = glslc

@@ -3,7 +3,6 @@
 #include "../include/keyboard_controller.hpp"
 
 #include <chrono>
-#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
 #include "../include/simple_render_system.hpp"
@@ -55,10 +54,10 @@ void App::run() {
 }
 
 void App::loadGameObjects() {
-    std::shared_ptr<Model> model = Model::createModelFromFile(device, "models/smooth_vase.obj");
+    std::shared_ptr<Model> model = Model::createModelFromFile(device, "models/flat_vase.obj");
     auto gameObject = GameObject::createGameObject();
     gameObject.model = model;
-    gameObject.transform.translation = {0.f, 0.f, 2.5f};
+    gameObject.transform.translation = {0.f, 0.5f, 2.5f};
     gameObject.transform.scale = glm::vec3(3.f);
 
     gameObjects.push_back(std::move(gameObject));

@@ -5,7 +5,6 @@
 #include <string>
 #include <vulkan/vulkan.h>
 
-
 namespace vkengine {
 
 class Window {

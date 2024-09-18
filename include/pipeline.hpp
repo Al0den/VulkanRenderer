@@ -5,7 +5,6 @@
 #include <vulkan/vulkan_core.h>
 
 #include "device.hpp"
-#include "model.hpp"
 
 namespace vkengine {
 

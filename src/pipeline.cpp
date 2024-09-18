@@ -1,9 +1,11 @@
 #include "../include/pipeline.hpp"
+#include "../include/model.hpp"
 
 #include <fstream>
 #include <stdexcept>
 #include <iostream>
 #include <cassert>
+
 
 #include <vulkan/vulkan_core.h>
 

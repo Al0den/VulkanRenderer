@@ -5,7 +5,6 @@
 #include "renderer.hpp"
 #include "game_object.hpp"
 
-#include <memory>
 #include <vector>
 
 namespace vkengine {
