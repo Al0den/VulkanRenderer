@@ -12,7 +12,7 @@ using namespace vkengine;
 
 struct SimplePushConstantData {
     glm::mat4 transform{1.f};
-    glm::mat4 modelMatrix{1.f};
+    glm::mat4 normalMatrix{1.f};
 };
 
 SimpleRenderSystem::SimpleRenderSystem(Device &device, VkRenderPass renderPass) : device{device} {
@@ -64,7 +64,7 @@ void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::v
         SimplePushConstantData push{};
         auto modelMatrix = obj.transform.mat4();
         push.transform = projectionView * modelMatrix;
-        push.modelMatrix = modelMatrix;
+        push.normalMatrix = obj.transform.normalMatrix();
 
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
         obj.model->bind(commandBuffer);

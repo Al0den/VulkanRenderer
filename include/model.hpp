@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "device.hpp"
+#include "buffer.hpp"
 
 namespace vkengine {
 
