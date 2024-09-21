@@ -1,5 +1,3 @@
-#ifndef VULKAN_RENDERER
-
 #include "../include/app.hpp"
 #include "../include/buffer.hpp"
 #include "../include/camera.hpp"
@@ -97,5 +95,3 @@ void App::loadGameObjects() {
 
     gameObjects.push_back(std::move(gameObject2));
 }
-
-#endif
