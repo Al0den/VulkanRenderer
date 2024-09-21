@@ -1,3 +1,5 @@
+#ifndef VULKAN_RENDERER
+
 #include "../include/keyboard_controller.hpp"
 
 using namespace vkengine;
@@ -36,3 +38,5 @@ void KeyboardController::moveInPlaneXZ(GLFWwindow *window, GameObject &gameObjec
     }
 
 }
+
+#endif

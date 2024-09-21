@@ -1,3 +1,5 @@
+#ifndef VULKAN_RENDERER
+
 #pragma once
 
 #include "game_object.hpp"
@@ -28,3 +30,4 @@ class KeyboardController {
 
 };
 }
+#endif 
