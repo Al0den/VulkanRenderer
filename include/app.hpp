@@ -1,3 +1,5 @@
+#ifndef VULKAN_RENDERER
+
 #pragma once
 
 #include "window.hpp"
@@ -33,3 +35,5 @@ class App {
 };
 
 }
+
+#endif
