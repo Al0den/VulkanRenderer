@@ -2,7 +2,8 @@
 #include "../include/buffer.hpp"
 #include "../include/camera.hpp"
 #include "../include/keyboard_controller.hpp"
-#include "../include/simple_render_system.hpp"
+#include "../include/systems/simple_render_system.hpp"
+#include "../include/systems/point_light_system.hpp"
 
 #include <chrono>
 #include <vulkan/vulkan_core.h>
@@ -16,7 +17,8 @@
 using namespace vkengine;
 
 struct GlobalUbo {
-    glm::mat4 projectionView{1.f};
+    glm::mat4 projection{1.f};
+    glm::mat4 view{1.f};
     glm::vec4 ambientLightColor{1.f, 1.f, 1.f, 0.02f};
     glm::vec3 lightPosition{-1.f};
     alignas(16) glm::vec4 lightColor{1.f};
@@ -57,10 +59,12 @@ void App::run() {
     }
  
     SimpleRenderSystem simpleRenderSystem{device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
+    PointLightSystem pointLightSystem{device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
+
     Camera camera{};
     camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.0, 0.2f, 1.0f));
 
-    auto viewerObject = GameObject::createGameObject();
+    auto viewerObject = GameObject::createGameObject(); 
     viewerObject.transform.translation.z -= 2.5f;
 
     KeyboardController cameraController{};
@@ -85,14 +89,16 @@ void App::run() {
 
             //update
             GlobalUbo ubo{};
-            ubo.projectionView = camera.getProjection() * camera.getView();
+            ubo.projection = camera.getProjection() ;
+            ubo.view = camera.getView();
             uboBuffers[frameIndex]->writeToBuffer(&ubo);
             uboBuffers[frameIndex]->flush();
 
             //render
             renderer.beginSwapChainRenderPass(commandBuffer);
             simpleRenderSystem.renderGameObjects(frameInfo);
-            renderer.endSwapChainRenderPass(commandBuffer);
+            pointLightSystem.render(frameInfo);
+            renderer.endSwapChainRenderPass(commandBuffer); 
             renderer.endFrame();
         }
     }

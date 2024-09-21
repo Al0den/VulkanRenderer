@@ -7,7 +7,7 @@ GLSLC = glslc
 
 TARGET=VulkanRenderer
 
-SRCS_CPP = $(wildcard src/*.cpp) 
+SRCS_CPP = $(shell find src -name "*.cpp")
 SRCS_VERT = $(wildcard shaders/*.vert)
 SRCS_FRAG = $(wildcard shaders/*.frag)
 

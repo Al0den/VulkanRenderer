@@ -1,4 +1,4 @@
-#include "../include/simple_render_system.hpp"
+#include "../../include/systems/simple_render_system.hpp"
 
 #include <stdexcept>
 #include <cstdlib>
@@ -52,7 +52,7 @@ void SimpleRenderSystem::createPipeline(VkRenderPass renderPass) {
     assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
     PipelineConfigInfo pipelineConfig{};
-    Pipeline::defaultPipelineConfigInfo(pipelineConfig);
+    Pipeline::defaultPipelineConfigInfo(pipelineConfig); 
     pipelineConfig.renderPass = renderPass;
     pipelineConfig.pipelineLayout = pipelineLayout;
     pipeline = std::make_unique<Pipeline>(device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
