@@ -14,12 +14,12 @@
 using namespace vkengine;
 
 struct SimplePushConstantData {
-    glm::mat4 transform{1.f};
+    glm::mat4 modelMatrix{1.f};
     glm::mat4 normalMatrix{1.f};
 };
 
-SimpleRenderSystem::SimpleRenderSystem(Device &device, VkRenderPass renderPass) : device{device} {
-    createPipelineLayout();
+SimpleRenderSystem::SimpleRenderSystem(Device &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : device{device} {
+    createPipelineLayout(globalSetLayout);
     createPipeline(renderPass);
 
     std::srand(std::time(0));
@@ -29,17 +29,18 @@ SimpleRenderSystem::~SimpleRenderSystem() {
     vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
 }
 
-void SimpleRenderSystem::createPipelineLayout() {
+void SimpleRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(SimplePushConstantData);
     
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalSetLayout};
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pSetLayouts = nullptr;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = 1;
     pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
     if (vkCreatePipelineLayout(device.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
@@ -57,22 +58,16 @@ void SimpleRenderSystem::createPipeline(VkRenderPass renderPass) {
     pipeline = std::make_unique<Pipeline>(device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
 }
 
-void SimpleRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<GameObject> &gameObjects) {
+void SimpleRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
     pipeline->bind(frameInfo.commandBuffer);
 
-    auto projectionView = frameInfo.camera.getProjection() * frameInfo.camera.getView();
+    vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &frameInfo.globalDescriptorSet, 0, nullptr);
 
-    int i = 0;
-    for (auto& obj : gameObjects) {
-        i++;
-        float randFloat = (float)(std::rand() % 100) / 20000;
-        obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + 0.01f + randFloat * i, glm::two_pi<float>());
-        obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + 0.005f + randFloat * i, glm::two_pi<float>());
-        obj.transform.rotation.z = glm::mod(obj.transform.rotation.x + 0.001f + randFloat * i, glm::two_pi<float>());
-
+    for (auto& kv : frameInfo.gameObjects) {
+        auto &obj = kv.second;
+        if(obj.model == nullptr) continue;
         SimplePushConstantData push{};
-        auto modelMatrix = obj.transform.mat4();
-        push.transform = projectionView * modelMatrix;
+        push.modelMatrix = obj.transform.mat4();
         push.normalMatrix = obj.transform.normalMatrix();
 
         vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);

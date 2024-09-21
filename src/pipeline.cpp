@@ -6,7 +6,6 @@
 #include <iostream>
 #include <cassert>
 
-
 #include <vulkan/vulkan_core.h>
 
 using namespace vkengine;

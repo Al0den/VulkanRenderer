@@ -4,6 +4,7 @@
 #include "device.hpp"
 #include "renderer.hpp"
 #include "game_object.hpp"
+#include "descriptors.hpp"
 
 #include <vector>
 
@@ -28,8 +29,9 @@ class App {
         Window window{WIDTH, HEIGHT, "Vulkan"};
         Device device{window};
         Renderer renderer{window, device};
-
-        std::vector<GameObject> gameObjects;
+    
+        std::unique_ptr<DescriptorPool> globalPool{};
+        GameObject::Map gameObjects{};
 };
 
 }
