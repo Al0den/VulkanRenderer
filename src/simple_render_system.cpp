@@ -1,6 +1,9 @@
 #include "../include/simple_render_system.hpp"
 
 #include <stdexcept>
+#include <cstdlib>
+#include <ctime>
+
 #include <vulkan/vulkan_core.h>
 
 #define GLM_FORCE_RADIANS
@@ -18,6 +21,8 @@ struct SimplePushConstantData {
 SimpleRenderSystem::SimpleRenderSystem(Device &device, VkRenderPass renderPass) : device{device} {
     createPipelineLayout();
     createPipeline(renderPass);
+
+    std::srand(std::time(0));
 }
 
 SimpleRenderSystem::~SimpleRenderSystem() {
@@ -57,7 +62,14 @@ void SimpleRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<Gam
 
     auto projectionView = frameInfo.camera.getProjection() * frameInfo.camera.getView();
 
+    int i = 0;
     for (auto& obj : gameObjects) {
+        i++;
+        float randFloat = (float)(std::rand() % 100) / 20000;
+        obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + 0.01f + randFloat * i, glm::two_pi<float>());
+        obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + 0.005f + randFloat * i, glm::two_pi<float>());
+        obj.transform.rotation.z = glm::mod(obj.transform.rotation.x + 0.001f + randFloat * i, glm::two_pi<float>());
+
         SimplePushConstantData push{};
         auto modelMatrix = obj.transform.mat4();
         push.transform = projectionView * modelMatrix;
