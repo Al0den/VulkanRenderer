@@ -10,7 +10,6 @@
 #include <chrono>
 #include <vulkan/vulkan_core.h>
 
-
 #define GLM_FORCE_RADIANS
 #define GLM_FRCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
