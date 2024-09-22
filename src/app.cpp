@@ -5,6 +5,7 @@
 #include "../include/systems/simple_render_system.hpp"
 #include "../include/systems/point_light_system.hpp"
 #include "../include/imgui.hpp"
+#include "../include/textures.hpp"
 
 #include <chrono>
 #include <vulkan/vulkan_core.h>
@@ -20,6 +21,7 @@ using namespace vkengine;
 App::App() { 
     globalPool = DescriptorPool::Builder(device)
         .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT)
+        .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT)
         .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
         .build();
     loadGameObjects(); 
@@ -42,13 +44,20 @@ void App::run() {
 
     auto globalSetLayout = DescriptorSetLayout::Builder(device)
         .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+        .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .build();
+    Texture texure{device, "textures/grass.png"};
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.sampler = texure.getSampler();
+    imageInfo.imageView = texure.getImageView();
+    imageInfo.imageLayout = texure.getImageLayout();
 
     std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (int i=0; i< globalDescriptorSets.size(); i++) {
         auto bufferInfo = uboBuffers[i]->descriptorInfo();
         DescriptorWriter(*globalSetLayout, *globalPool)
             .writeBuffer(0, &bufferInfo)
+            .writeImage(1, &imageInfo)
             .build(globalDescriptorSets[i]);
     }
  
@@ -76,7 +85,7 @@ void App::run() {
         camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
         float aspect = renderer.getAspectRatio();
-        camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 10.f);
+        camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 1000.f);
         if (auto commandBuffer = renderer.beginFrame()) {
             imgui.newFrame();
             int frameIndex = renderer.getFrameIndex();
@@ -94,7 +103,7 @@ void App::run() {
             renderer.beginSwapChainRenderPass(commandBuffer);
             simpleRenderSystem.renderGameObjects(frameInfo);
             pointLightSystem.render(frameInfo);
-            imgui.debugWindow();
+            imgui.debugWindow(frameInfo);
             imgui.render(commandBuffer);
             renderer.endSwapChainRenderPass(commandBuffer); 
             renderer.endFrame();
@@ -124,7 +133,7 @@ void App::loadGameObjects() {
     std::shared_ptr<Model> quad = Model::createModelFromFile(device, "models/quad.obj");
     auto floor = GameObject::createGameObject();
     floor.model = quad;
-    floor.transform.translation = {0.5, 0.5f, 0.0f};
+    floor.transform.translation = {0.0, 0.5f, 0.0f};
     floor.transform.scale = {3.f, 1.f, 3.f};
 
     gameObjects.emplace(floor.getId(), std::move(floor));

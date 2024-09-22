@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <memory>
+#include <unordered_set>
 
 #include "device.hpp"
 #include "buffer.hpp"
@@ -48,6 +49,17 @@ class Model {
         void bind(VkCommandBuffer commandBuffer);
         void draw(VkCommandBuffer commandBuffer);
 
+        int getVertexCount() const {
+            return vertexCount;
+        }
+        int getIndexCount() const {
+            if(hasIndexBuffer) {
+                return indexCount;
+            } else {
+                return 0;
+            }
+        }
+
     private:
         void createVertexBuffers(const std::vector<Vertex> &vertices);
         void createIndexBuffer(const std::vector<uint32_t> &indices);
@@ -55,7 +67,7 @@ class Model {
         Device &device;
 
         std::unique_ptr<Buffer> vertexBuffer;
-        uint32_t vertexCount;
+        uint32_t vertexCount = 0;
 
         bool hasIndexBuffer = false;
         std::unique_ptr<Buffer> indexBuffer;

@@ -53,7 +53,6 @@ SwapChain::~SwapChain() {
 
     vkDestroyRenderPass(device.device(), renderPass, nullptr);
 
-    // cleanup synchronization objects
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(device.device(), renderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(device.device(), imageAvailableSemaphores[i], nullptr);

@@ -1,4 +1,5 @@
 #include "../include/imgui.hpp"
+#include "../include/frame_info.hpp"
 // libs
 // std
 #include <stdexcept>
@@ -68,26 +69,25 @@ void Imgui::render(VkCommandBuffer commandBuffer) {
     ImDrawData *drawdata = ImGui::GetDrawData();
     ImGui_ImplVulkan_RenderDrawData(drawdata, commandBuffer);
 }
-void Imgui::debugWindow() {
+
+void Imgui::debugWindow(FrameInfo& frameInfo) {
     {
         static float f = 0.0f;
         static int counter = 0;
         ImGui::Begin("Debug Window");           
-        ImGui::SliderFloat("float", &f, 0.0f, 1.0f); 
-        ImGui::ColorEdit3("clear color", (float *)&clear_color);
-        if (ImGui::Button("Button")) {
-            counter++;
-        }
-        ImGui::SameLine();
-        ImGui::Text("counter = %d", counter);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        ImGui::End();
-    }
-    if (show_another_window) {
-        ImGui::Begin("Another Window", &show_another_window);
-        ImGui::Text("Hello from another window!");
-        if (ImGui::Button("Close Me"))
-            show_another_window = false;
+        ImGui::Text("%d Game Objects", (int)frameInfo.gameObjects.size());
+        if(ImGui::Button("Update Vertices")) {
+            numIndices = 0;
+            numVertices = 0;
+            for(auto& obj : frameInfo.gameObjects) {
+                if(obj.second.model == nullptr) continue;
+                numVertices += obj.second.model->getVertexCount();
+                numIndices += obj.second.model->getIndexCount();
+            }
+        }
+
+        ImGui::Text("Vertices: %d, Indices: %d", numVertices, numIndices);
         ImGui::End();
     }
 }
