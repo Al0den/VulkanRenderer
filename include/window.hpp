@@ -23,6 +23,8 @@ class Window {
         bool wasWindowResized() { return framebufferResized; }
         void resetWindowResizedFlag() { framebufferResized = false; }
 
+        GLFWwindow *getGLFWWindow() { return window; }
+
     private:
         static void framebufferResizeCallback(GLFWwindow *window, int width, int height);
         void initWindow();

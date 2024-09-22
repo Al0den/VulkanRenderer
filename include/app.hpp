@@ -18,8 +18,8 @@ class App {
         App(const App &) = delete;
         App &operator=(const App &) = delete;
 
-        static constexpr int WIDTH = 800;
-        static constexpr int HEIGHT = 600;
+        static constexpr int WIDTH = 1900;
+        static constexpr int HEIGHT = 1180;
 
         void run();
 

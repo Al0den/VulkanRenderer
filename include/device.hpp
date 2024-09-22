@@ -60,6 +60,10 @@ class Device {
 
     VkPhysicalDeviceProperties properties;
 
+    VkInstance getInstance() { return instance; }
+    VkPhysicalDevice getPhysicalDevice() { return physicalDevice; }
+    uint32_t getGraphicsQueueFamily() { return findPhysicalQueueFamilies().graphicsFamily; }
+
   private:
     void createInstance();
     void setupDebugMessenger();

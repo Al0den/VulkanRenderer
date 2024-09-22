@@ -4,6 +4,7 @@
 #include "../include/keyboard_controller.hpp"
 #include "../include/systems/simple_render_system.hpp"
 #include "../include/systems/point_light_system.hpp"
+#include "../include/imgui.hpp"
 
 #include <chrono>
 #include <vulkan/vulkan_core.h>
@@ -27,6 +28,7 @@ App::App() {
 App::~App() {}
 
 void App::run() {
+    Imgui imgui{window, device, renderer.getSwapChainRenderPass(), renderer.getImageCount()};
     std::vector<std::unique_ptr<Buffer>> uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
         uboBuffers[i] = std::make_unique<Buffer>(
@@ -76,6 +78,7 @@ void App::run() {
         float aspect = renderer.getAspectRatio();
         camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 10.f);
         if (auto commandBuffer = renderer.beginFrame()) {
+            imgui.newFrame();
             int frameIndex = renderer.getFrameIndex();
             FrameInfo frameInfo{frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects};
 
@@ -91,6 +94,8 @@ void App::run() {
             renderer.beginSwapChainRenderPass(commandBuffer);
             simpleRenderSystem.renderGameObjects(frameInfo);
             pointLightSystem.render(frameInfo);
+            imgui.debugWindow();
+            imgui.render(commandBuffer);
             renderer.endSwapChainRenderPass(commandBuffer); 
             renderer.endFrame();
         }

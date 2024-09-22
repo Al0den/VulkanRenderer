@@ -37,6 +37,8 @@ class Renderer {
             assert(isFrameStarted && "Cannot get frame index when frame not in progress.");
             return currentFrameIndex; 
         }
+
+        uint32_t getImageCount() const { return swapChain->imageCount(); }
             
     private:
         void createCommandBuffers();
