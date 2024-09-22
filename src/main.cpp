@@ -1,3 +1,5 @@
+#ifndef VULKAN_RENDERER
+
 #include "../include/app.hpp"
 #include <cstdlib>
 
@@ -17,3 +19,5 @@ int main() {
 
     return EXIT_SUCCESS;
 }
+
+#endif
