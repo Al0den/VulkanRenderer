@@ -1,4 +1,4 @@
-#include "../../include/systems/simple_render_system.hpp"
+#include "../../include/systems/texture_render_system.hpp"
 
 #include <stdexcept>
 #include <cstdlib>
@@ -18,18 +18,18 @@ struct SimplePushConstantData {
     glm::mat4 normalMatrix{1.f};
 };
 
-SimpleRenderSystem::SimpleRenderSystem(Device &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : device{device} {
+TextureRenderSystem::TextureRenderSystem(Device &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : device{device} {
     createPipelineLayout(globalSetLayout);
     createPipeline(renderPass);
 
     std::srand(std::time(0));
 }
 
-SimpleRenderSystem::~SimpleRenderSystem() {
+TextureRenderSystem::~TextureRenderSystem() {
     vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
 }
 
-void SimpleRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
+void TextureRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushConstantRange.offset = 0;
@@ -48,17 +48,17 @@ void SimpleRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLay
     }
 }
 
-void SimpleRenderSystem::createPipeline(VkRenderPass renderPass) {
+void TextureRenderSystem::createPipeline(VkRenderPass renderPass) {
     assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
     PipelineConfigInfo pipelineConfig{};
     Pipeline::defaultPipelineConfigInfo(pipelineConfig); 
     pipelineConfig.renderPass = renderPass;
     pipelineConfig.pipelineLayout = pipelineLayout;
-    pipeline = std::make_unique<Pipeline>(device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
+    pipeline = std::make_unique<Pipeline>(device, "shaders/texture.vert.spv", "shaders/texture.frag.spv", pipelineConfig);
 }
 
-void SimpleRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
+void TextureRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
     pipeline->bind(frameInfo.commandBuffer);
 
     vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &frameInfo.globalDescriptorSet, 0, nullptr);
@@ -66,8 +66,7 @@ void SimpleRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
     for (auto& kv : frameInfo.gameObjects) {
         auto &obj = kv.second;
 
-        if(obj.model == nullptr) continue;
-        if(obj.texture != nullptr) continue;
+        if(obj.texture == nullptr) continue;
 
         SimplePushConstantData push{};
         push.modelMatrix = obj.transform.mat4();

@@ -17,6 +17,8 @@ class Camera {
         
         const glm::mat4& getProjection() const { return projectionMatrix; }
         const glm::mat4& getView() const { return viewMatrix; }
+
+        const glm::vec3 getPosition() const { return glm::inverse(viewMatrix)[3]; }
     private:
         glm::mat4 projectionMatrix{1.f};
         glm::mat4 viewMatrix{1.f};

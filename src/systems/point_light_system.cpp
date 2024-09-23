@@ -89,7 +89,9 @@ void PointLightSystem::render(FrameInfo &frameInfo) {
 
     for (auto &kv : frameInfo.gameObjects) {
         auto &obj = kv.second;
+
         if(obj.pointLight == nullptr) continue;
+        if(obj.texture != nullptr) continue;
 
 
         PointLightPushConstant push{};

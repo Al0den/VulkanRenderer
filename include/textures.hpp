@@ -33,16 +33,4 @@ private:
     VkImageLayout imageLayout;
 };
 
-class TextureManager {
-public:
-    TextureManager(Device &device);
-    ~TextureManager();
-
-    std::shared_ptr<Texture> loadTexture(const std::string &filepath);
-
-private:
-    Device &device;
-    std::unordered_map<std::string, std::shared_ptr<Texture>> textures;
-};
-
 }

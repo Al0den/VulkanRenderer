@@ -132,13 +132,3 @@ Texture::~Texture() {
     vkDestroyImageView(device.device(), imageView, nullptr);
     vkDestroySampler(device.device(), sampler, nullptr);
 }
-
-TextureManager::TextureManager(Device &device) : device{device} {}
-TextureManager::~TextureManager() {};
-
-std::shared_ptr<Texture> TextureManager::loadTexture(const std::string &filepath) {
-    if (textures.find(filepath) == textures.end()) {
-        textures[filepath] = std::make_shared<Texture>(device, filepath);
-    }
-    return textures[filepath];
-}

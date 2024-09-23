@@ -88,6 +88,7 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
         }
 
         ImGui::Text("Vertices: %d, Indices: %d", numVertices, numIndices);
+        ImGui::Text("x: %.2f, y: %.2f, z: %.2f", frameInfo.camera.getPosition().x, frameInfo.camera.getPosition().y, frameInfo.camera.getPosition().z);
         ImGui::End();
     }
 }

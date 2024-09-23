@@ -4,10 +4,12 @@
 #include "../include/keyboard_controller.hpp"
 #include "../include/systems/simple_render_system.hpp"
 #include "../include/systems/point_light_system.hpp"
+#include "../include/systems/texture_render_system.hpp"
 #include "../include/imgui.hpp"
 #include "../include/textures.hpp"
 
 #include <chrono>
+#include <iostream>
 #include <vulkan/vulkan_core.h>
 
 #define GLM_FORCE_RADIANS
@@ -45,6 +47,7 @@ void App::run() {
         .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
         .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .build();
+
     Texture texure{device, "textures/grass.png"};
     VkDescriptorImageInfo imageInfo{};
     imageInfo.sampler = texure.getSampler();
@@ -62,6 +65,7 @@ void App::run() {
  
     SimpleRenderSystem simpleRenderSystem{device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
     PointLightSystem pointLightSystem{device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
+    TextureRenderSystem textureRenderSystem{device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
 
     Camera camera{};
     camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.0, 0.2f, 1.0f));
@@ -101,6 +105,7 @@ void App::run() {
             //render
             renderer.beginSwapChainRenderPass(commandBuffer);
             simpleRenderSystem.renderGameObjects(frameInfo);
+            textureRenderSystem.renderGameObjects(frameInfo);
             pointLightSystem.render(frameInfo);
             imgui.debugWindow(frameInfo);
             imgui.render(commandBuffer);
@@ -152,5 +157,41 @@ void App::loadGameObjects() {
         auto rotateLight = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>()) / lightColors.size(), {0.f, -1.f, 0.f});
         pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(-1.f, -1.f, -1.f, 1.f));
         gameObjects.emplace(pointLight.getId(), std::move(pointLight));
+    }
+
+    //Create a cube using 6 Quads
+    std::shared_ptr<Model> quadModel = Model::createModelFromFile(device, "models/quad.obj");
+    std::vector<GameObject> faces;
+    faces.reserve(6);
+
+    std::vector<std::vector<float>> translations = {
+        {0.0f,  0.0f,  -0.5f},  // Front face (positive Z)
+        {0.0f,  0.0f,  0.5f},  // Back face (positive Z)
+        {-0.5f,  0.0f,  0.0f},  // Left face (positive Z)
+        {0.5f,  0.0f,  0.0f},  // Right face (positive Z)
+        {0.0f,  0.5f,  0.0f},  // Bottom face (positive Z)
+        {0.0f,  -0.5f,  0.0f},  // Top face (positive Z)
+    };
+
+    std::vector<std::vector<float>> rotations = {
+        {glm::radians(90.f), 0.0f, 0.0f},                 // Front face, no rotation
+        {glm::radians(90.f), 0.0f, 0.0f},                 // Front face, no rotation
+        {0, 0.0f, glm::radians(270.0f)},                 // Front face, no rotation
+        {0, 0.0f, glm::radians(90.0f)},                 // Front face, no rotation
+        {0, 0.0f, glm::radians(180.0f)},                 // Front face, no rotation
+        {0, 0.0f, 0.0f},                 // Front face, no rotation
+    };
+    
+    glm::vec3 globalTranslation = glm::vec3(0.0, 0.5f, 2.0);
+
+    for (int i = 0; i < 6; i++) {
+        auto gameObj = GameObject::createGameObject();
+        faces.push_back(std::move(gameObj));
+        faces[i].model = quadModel;
+        faces[i].transform.translation = glm::vec3(translations[i][0], translations[i][1], translations[i][2]) + globalTranslation;
+        faces[i].transform.rotation = glm::vec3(rotations[i][0], rotations[i][1], rotations[i][2]);
+        faces[i].texture = std::make_unique<Texture>(device, "textures/grass.png");
+
+        gameObjects.emplace(faces[i].getId(), std::move(faces[i]));
     }
 }
