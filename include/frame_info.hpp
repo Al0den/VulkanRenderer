@@ -2,6 +2,7 @@
 
 #include "camera.hpp"
 #include "game_object.hpp"
+#include "textures.hpp"
 
 #include <vulkan/vulkan.h>
 
@@ -29,6 +30,7 @@ struct FrameInfo {
     Camera &camera;
     VkDescriptorSet globalDescriptorSet;
     GameObject::Map &gameObjects;
+    TextureManager &textureManager;
 };
 
 }

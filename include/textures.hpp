@@ -21,6 +21,7 @@ public:
     Texture(Texture &&) = delete;
     Texture &operator=(Texture &&) = delete;
 
+    VkDescriptorImageInfo imageInfo;
 private:
     void transitionImageLayout(VkImageLayout oldImageLayout, VkImageLayout newLayout);
 
@@ -31,6 +32,27 @@ private:
     VkSampler sampler;
     VkFormat imageFormat;
     VkImageLayout imageLayout;
+
 };
+
+class TextureManager {
+
+public:
+
+    TextureManager(Device &device) : device(device) {}
+
+    const std::shared_ptr<Texture> loadTexture(const std::string& filepath) {
+        if(textures.find(filepath) == textures.end()) {
+            textures[filepath] = std::make_shared<Texture>(device, filepath);
+        }
+        return textures[filepath];
+    }
+
+private:
+    Device &device;
+
+    std::unordered_map<std::string, std::shared_ptr<Texture>> textures;
+};
+
 
 }

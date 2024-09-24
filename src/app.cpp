@@ -26,12 +26,14 @@ App::App() {
         .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
         .build();
     loadGameObjects(); 
+
 } 
 
 App::~App() {}
 
 void App::run() {
     Imgui imgui{window, device, renderer.getSwapChainRenderPass(), renderer.getImageCount()};
+
     std::vector<std::unique_ptr<Buffer>> uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
         uboBuffers[i] = std::make_unique<Buffer>(
@@ -45,21 +47,13 @@ void App::run() {
 
     auto globalSetLayout = DescriptorSetLayout::Builder(device)
         .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
-        .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .build();
-
-    Texture texure{device, "textures/grass.png"};
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.sampler = texure.getSampler();
-    imageInfo.imageView = texure.getImageView();
-    imageInfo.imageLayout = texure.getImageLayout();
 
     std::vector<VkDescriptorSet> globalDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (int i=0; i< globalDescriptorSets.size(); i++) {
         auto bufferInfo = uboBuffers[i]->descriptorInfo();
         DescriptorWriter(*globalSetLayout, *globalPool)
             .writeBuffer(0, &bufferInfo)
-            .writeImage(1, &imageInfo)
             .build(globalDescriptorSets[i]);
     }
  
@@ -92,7 +86,7 @@ void App::run() {
         if (auto commandBuffer = renderer.beginFrame()) {
             imgui.newFrame();
             int frameIndex = renderer.getFrameIndex();
-            FrameInfo frameInfo{frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects};
+            FrameInfo frameInfo{frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects, textureManager};
 
             //update
             GlobalUbo ubo{};
@@ -190,10 +184,6 @@ void App::loadGameObjects() {
         faces[i].transform.translation = glm::vec3(translations[i][0], translations[i][1], translations[i][2]) + globalTranslation;
         faces[i].transform.rotation = glm::vec3(rotations[i][0], rotations[i][1], rotations[i][2]);
     
-        faces[i].texture = std::make_unique<Texture>(device, "textures/grass.png");
-
-        //faces[i].descriptorSet = descriptorSet;
-
         gameObjects.emplace(faces[i].getId(), std::move(faces[i]));
     }
 }

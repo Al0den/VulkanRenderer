@@ -84,6 +84,11 @@ Texture::Texture(Device &device, const std::string &filepath) : device{device} {
     }
 
     stbi_image_free(data);
+
+    imageInfo.sampler = getSampler();
+    imageInfo.imageView = getImageView();
+    imageInfo.imageLayout = getImageLayout();
+
 }
 
 void Texture::transitionImageLayout(VkImageLayout oldLayout, VkImageLayout newLayout) {

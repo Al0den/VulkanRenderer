@@ -32,6 +32,8 @@ class App {
     
         std::unique_ptr<DescriptorPool> globalPool{};
         GameObject::Map gameObjects{};
+
+        TextureManager textureManager{device};
 };
 
 }

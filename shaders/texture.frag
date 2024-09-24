@@ -20,8 +20,6 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     int numLights;
 } ubo;
 
-layout(set = 0, binding = 1) uniform sampler2D image;
-
 void main() {
     vec3 diffuseLight = ubo.ambientLightColor.xyz * ubo.ambientLightColor.w;
     vec3 surfaceNormal = normalize(fragNormalWorld);
@@ -36,7 +34,6 @@ void main() {
         diffuseLight += intensity * cosAngIncidence;
     }
 
-    vec3 imageColor = texture(image, fragUV).rgb;
 
-    outColor = vec4(1 * fragColor * imageColor, 1.0);
+    outColor = vec4(diffuseLight * fragColor, 1.0);
 }
