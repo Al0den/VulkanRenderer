@@ -43,7 +43,7 @@ DescriptorSetLayout::DescriptorSetLayout(Device &lveDevice, std::unordered_map<u
 
 DescriptorSetLayout::~DescriptorSetLayout() { vkDestroyDescriptorSetLayout(lveDevice.device(), descriptorSetLayout, nullptr); }
 
-// *************** Descriptor Pool Builder *********************
+ // *************** Descriptor Pool Builder *********************
 
 DescriptorPool::Builder &DescriptorPool::Builder::addPoolSize(VkDescriptorType descriptorType, uint32_t count) {
     poolSizes.push_back({descriptorType, count});
@@ -100,6 +100,7 @@ void DescriptorPool::freeDescriptors(std::vector<VkDescriptorSet> &descriptors) 
 }
 
 void DescriptorPool::resetPool() { vkResetDescriptorPool(lveDevice.device(), descriptorPool, 0); }
+
 
 // *************** Descriptor Writer *********************
 

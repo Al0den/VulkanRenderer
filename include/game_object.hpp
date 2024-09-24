@@ -48,7 +48,9 @@ class GameObject {
 
         std::shared_ptr<Model> model{};
         std::unique_ptr<PointLightComponent> pointLight = nullptr;
+
         std::shared_ptr<Texture> texture = nullptr;
+        VkDescriptorSet descriptorSet; //Undefined if texture == nullptr;
 
     private:
         GameObject(id_t objId) : id(objId) {}

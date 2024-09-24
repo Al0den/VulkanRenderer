@@ -159,7 +159,6 @@ void App::loadGameObjects() {
         gameObjects.emplace(pointLight.getId(), std::move(pointLight));
     }
 
-    //Create a cube using 6 Quads
     std::shared_ptr<Model> quadModel = Model::createModelFromFile(device, "models/quad.obj");
     std::vector<GameObject> faces;
     faces.reserve(6);
@@ -190,7 +189,10 @@ void App::loadGameObjects() {
         faces[i].model = quadModel;
         faces[i].transform.translation = glm::vec3(translations[i][0], translations[i][1], translations[i][2]) + globalTranslation;
         faces[i].transform.rotation = glm::vec3(rotations[i][0], rotations[i][1], rotations[i][2]);
+    
         faces[i].texture = std::make_unique<Texture>(device, "textures/grass.png");
+
+        //faces[i].descriptorSet = descriptorSet;
 
         gameObjects.emplace(faces[i].getId(), std::move(faces[i]));
     }
