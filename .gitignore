@@ -2,3 +2,4 @@
 *.o
 VulkanRenderer
 .DS_Store
+build/*
