@@ -19,10 +19,10 @@ public:
         int lookRight = GLFW_KEY_RIGHT;
     };
 
-    void moveInPlaneXZ(GLFWwindow *window, GameObject &gameObject, float deltaTime);
+    void moveInPlaneXZ(GLFWwindow *window, std::shared_ptr<GameObject> gameObject, float deltaTime);
     
     KeyMappings keys{};
-    float moveSpeed{3.f};
+    float moveSpeed{30.f};
     float lookSpeed{1.5f};
 };
 }

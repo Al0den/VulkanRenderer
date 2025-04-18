@@ -5,6 +5,7 @@
 #include "renderer.hpp"
 #include "game_object.hpp"
 #include "descriptors.hpp"
+#include "chunk_manager.hpp"
 
 #include <vector>
 
@@ -21,6 +22,9 @@ class App {
         static constexpr int WIDTH = 1900;
         static constexpr int HEIGHT = 1180;
 
+        // Chunk view distance (in chunk units)
+        static constexpr int CHUNK_VIEW_DISTANCE = 5;
+
         void run();
 
     private:
@@ -32,6 +36,7 @@ class App {
     
         std::unique_ptr<DescriptorPool> globalPool{};
         GameObject::Map gameObjects{};
+        std::unique_ptr<ChunkManager> chunkManager{};
 
         TextureManager textureManager{device};
 };

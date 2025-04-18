@@ -26,14 +26,14 @@ struct PointLightComponent {
 class GameObject {
     public:
         using id_t = unsigned int;
-        using Map = std::unordered_map<id_t, GameObject>;
+        using Map = std::unordered_map<id_t, std::shared_ptr<GameObject>>;
 
-        static GameObject createGameObject() { 
+        static std::shared_ptr<GameObject> createGameObject() { 
             static id_t currentId = 0;
-            return GameObject(currentId++); 
+            return std::make_shared<GameObject>(currentId++); 
         }
 
-        static GameObject makePointLight(float intensity = 10.f, float radius = 0.1f, glm::vec3 color = glm::vec3(1.f));
+        static std::shared_ptr<GameObject> makePointLight(float intensity = 10.f, float radius = 0.1f, glm::vec3 color = glm::vec3(1.f));
 
         id_t getId() const { return id; }
         
@@ -52,9 +52,10 @@ class GameObject {
         std::shared_ptr<Texture> texture = nullptr;
         VkDescriptorSet descriptorSet; //Undefined if texture == nullptr;
 
-    private:
+    public:
         GameObject(id_t objId) : id(objId) {}
-    
+        
+    private:
     id_t id;
 };
 

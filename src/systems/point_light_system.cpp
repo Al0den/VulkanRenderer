@@ -66,15 +66,15 @@ void PointLightSystem::update(FrameInfo &frameInfo, GlobalUbo &ubo) {
     auto rotateLight = glm::rotate(glm::mat4(1.f), frameInfo.frameTime, {0.f, -1.f, 0.f});
     for (auto &kv : frameInfo.gameObjects) {
         auto& obj = kv.second;
-        if(obj.pointLight == nullptr) continue;
+        if(obj->pointLight == nullptr) continue;
 
         assert(lightIndex < MAX_LIGHTS);
 
-        obj.transform.translation = glm::vec3(rotateLight * glm::vec4(obj.transform.translation, 1.f));
+        obj->transform.translation = glm::vec3(rotateLight * glm::vec4(obj->transform.translation, 1.f));
 
 
-        ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.0f);
-        ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
+        ubo.pointLights[lightIndex].position = glm::vec4(obj->transform.translation, 1.0f);
+        ubo.pointLights[lightIndex].color = glm::vec4(obj->color, obj->pointLight->lightIntensity);
 
         lightIndex += 1;
 
@@ -90,14 +90,14 @@ void PointLightSystem::render(FrameInfo &frameInfo) {
     for (auto &kv : frameInfo.gameObjects) {
         auto &obj = kv.second;
 
-        if(obj.pointLight == nullptr) continue;
-        if(obj.texture != nullptr) continue;
+        if(obj->pointLight == nullptr) continue;
+        if(obj->texture != nullptr) continue;
 
 
         PointLightPushConstant push{};
-        push.position = glm::vec4(obj.transform.translation, 1.f);
-        push.color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
-        push.radius = obj.transform.scale.x;
+        push.position = glm::vec4(obj->transform.translation, 1.f);
+        push.color = glm::vec4(obj->color, obj->pointLight->lightIntensity);
+        push.radius = obj->transform.scale.x;
 
         vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PointLightPushConstant), &push);
         vkCmdDraw(frameInfo.commandBuffer, 6, 1, 0, 0);

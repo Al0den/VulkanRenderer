@@ -81,9 +81,9 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
             numIndices = 0;
             numVertices = 0;
             for(auto& obj : frameInfo.gameObjects) {
-                if(obj.second.model == nullptr) continue;
-                numVertices += obj.second.model->getVertexCount();
-                numIndices += obj.second.model->getIndexCount();
+                if(obj.second->model == nullptr) continue;
+                numVertices += obj.second->model->getVertexCount();
+                numIndices += obj.second->model->getIndexCount();
             }
         }
 

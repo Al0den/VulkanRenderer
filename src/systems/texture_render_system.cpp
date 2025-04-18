@@ -66,14 +66,14 @@ void TextureRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
     for (auto& kv : frameInfo.gameObjects) {
         auto &obj = kv.second;
 
-        if(obj.texture == nullptr) continue;
+        if(obj->texture == nullptr) continue;
 
         SimplePushConstantData push{};
-        push.modelMatrix = obj.transform.mat4();
-        push.normalMatrix = obj.transform.normalMatrix();
+        push.modelMatrix = obj->transform.mat4();
+        push.normalMatrix = obj->transform.normalMatrix();
 
         vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-        obj.model->bind(frameInfo.commandBuffer);
-        obj.model->draw(frameInfo.commandBuffer);
+        obj->model->bind(frameInfo.commandBuffer);
+        obj->model->draw(frameInfo.commandBuffer);
     }
 }

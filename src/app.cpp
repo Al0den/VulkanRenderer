@@ -5,6 +5,8 @@
 #include "../include/systems/simple_render_system.hpp"
 #include "../include/systems/point_light_system.hpp"
 #include "../include/imgui.hpp"
+#include "../include/chunk.hpp"
+#include "../include/chunk_manager.hpp"
 
 #include <chrono>
 #include <vulkan/vulkan_core.h>
@@ -22,8 +24,11 @@ App::App() {
         .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT)
         .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
         .build();
+    
+    // Initialize chunk manager
+    chunkManager = std::make_unique<ChunkManager>(device);
+    
     loadGameObjects(); 
-
 } 
 
 App::~App() {}
@@ -61,7 +66,7 @@ void App::run() {
     camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.0, 0.2f, 1.0f));
 
     auto viewerObject = GameObject::createGameObject(); 
-    viewerObject.transform.translation.z -= 2.5f;
+    viewerObject->transform.translation.z -= 2.5f;
 
     KeyboardController cameraController{};
 
@@ -75,7 +80,10 @@ void App::run() {
         currentTime = newTime;
 
         cameraController.moveInPlaneXZ(window.getWindow(), viewerObject, frameTime);
-        camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+        camera.setViewYXZ(viewerObject->transform.translation, viewerObject->transform.rotation);
+
+        // Update chunks based on player position and view distance
+        chunkManager->update(viewerObject->transform.translation, CHUNK_VIEW_DISTANCE, gameObjects);
 
         float aspect = renderer.getAspectRatio();
         camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 1000.f);
@@ -107,78 +115,12 @@ void App::run() {
 }
 
 void App::loadGameObjects() {
-    std::shared_ptr<Model> model = Model::createModelFromFile(device, "models/smooth_vase.obj");
-    auto gameObject = GameObject::createGameObject();
-    gameObject.model = model;
-    gameObject.transform.translation = {-0.5f, 0.5f, 0.0f};
-    gameObject.transform.scale = {2.f, 1.f, 2.f};
+    // Create a single point light
+    auto pointLight = GameObject::makePointLight(0.5f);
+    pointLight->color = {1.f, 1.f, 1.f};
+    pointLight->transform.translation = {0.f, CHUNK_SIZE, 0.f};
+    gameObjects.emplace(pointLight->getId(), pointLight);
 
-    gameObjects.emplace(gameObject.getId(), std::move(gameObject));
-
-    std::shared_ptr<Model> model2 = Model::createModelFromFile(device, "models/flat_vase.obj");
-    auto gameObject2 = GameObject::createGameObject();
-    gameObject2.model = model2;
-    gameObject2.transform.translation = {0.5, 0.5f, 0.0f};
-    gameObject2.transform.scale = {2.f, 1.f, 2.f};
-
-    gameObjects.emplace(gameObject2.getId(), std::move(gameObject2));
-
-    std::shared_ptr<Model> quad = Model::createModelFromFile(device, "models/quad.obj");
-    auto floor = GameObject::createGameObject();
-    floor.model = quad;
-    floor.transform.translation = {0.0, 0.5f, 0.0f};
-    floor.transform.scale = {3.f, 1.f, 3.f};
-
-    gameObjects.emplace(floor.getId(), std::move(floor));
-
-     std::vector<glm::vec3> lightColors{
-      {1.f, .1f, .1f},
-      {.1f, .1f, 1.f},
-      {.1f, 1.f, .1f},
-      {1.f, 1.f, .1f},
-      {.1f, 1.f, 1.f},
-      {1.f, 1.f, 1.f}  //
-    };
-
-    for(int i=0; i< lightColors.size(); i++) {
-        auto pointLight = GameObject::makePointLight(0.2f);
-        pointLight.color = lightColors[i];
-        auto rotateLight = glm::rotate(glm::mat4(1.f), (i * glm::two_pi<float>()) / lightColors.size(), {0.f, -1.f, 0.f});
-        pointLight.transform.translation = glm::vec3(rotateLight * glm::vec4(-1.f, -1.f, -1.f, 1.f));
-        gameObjects.emplace(pointLight.getId(), std::move(pointLight));
-    }
-
-    std::shared_ptr<Model> quadModel = Model::createModelFromFile(device, "models/quad.obj");
-    std::vector<GameObject> faces;
-    faces.reserve(6);
-
-    std::vector<std::vector<float>> translations = {
-        {0.0f,  0.0f,  -0.5f},  // Front face (positive Z)
-        {0.0f,  0.0f,  0.5f},  // Back face (positive Z)
-        {-0.5f,  0.0f,  0.0f},  // Left face (positive Z)
-        {0.5f,  0.0f,  0.0f},  // Right face (positive Z)
-        {0.0f,  0.5f,  0.0f},  // Bottom face (positive Z)
-        {0.0f,  -0.5f,  0.0f},  // Top face (positive Z)
-    };
-
-    std::vector<std::vector<float>> rotations = {
-        {glm::radians(90.f), 0.0f, 0.0f},                 // Front face, no rotation
-        {glm::radians(90.f), 0.0f, 0.0f},                 // Front face, no rotation
-        {0, 0.0f, glm::radians(270.0f)},                 // Front face, no rotation
-        {0, 0.0f, glm::radians(90.0f)},                 // Front face, no rotation
-        {0, 0.0f, glm::radians(180.0f)},                 // Front face, no rotation
-        {0, 0.0f, 0.0f},                 // Front face, no rotation
-    };
-    
-    glm::vec3 globalTranslation = glm::vec3(0.0, 0.5f, 2.0);
-
-    for (int i = 0; i < 6; i++) {
-        auto gameObj = GameObject::createGameObject();
-        faces.push_back(std::move(gameObj));
-        faces[i].model = quadModel;
-        faces[i].transform.translation = glm::vec3(translations[i][0], translations[i][1], translations[i][2]) + globalTranslation;
-        faces[i].transform.rotation = glm::vec3(rotations[i][0], rotations[i][1], rotations[i][2]);
-    
-        gameObjects.emplace(faces[i].getId(), std::move(faces[i]));
-    }
+    // Initial chunks will be created by the ChunkManager during the first update
+    // We don't need to manually create chunks here anymore
 }

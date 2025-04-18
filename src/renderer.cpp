@@ -106,7 +106,7 @@ void Renderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer) {
     assert(commandBuffer == getCurrentCommandBuffer() && "Can't begin render pass on command buffer from a different frame");
 
     std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {0.01f, 0.01f, 0.01f, 1.0f};
+    clearValues[0].color = {0.53f, 0.81f, 0.92f, 1.0f};  // Light blue sky color
     clearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo renderPassInfo{};
