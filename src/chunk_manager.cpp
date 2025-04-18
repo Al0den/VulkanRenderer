@@ -40,15 +40,25 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
                     } else {
                         // Use existing chunk
                         chunk = it->second;
+                        if(chunk->isModified()) {
+                            updateChunk(chunk);
+                        }
                     }
+
                     
                     // Get game object ID and add to new active chunks
                     GameObject::id_t objectId = chunk->getGameObject()->getId();
                     newActiveChunks[coord] = objectId;
-                    
-                    // Add to game objects map if not already there
-                    if (gameObjects.find(objectId) == gameObjects.end()) {
-                        gameObjects.emplace(objectId, chunk->getGameObject());
+                    if(chunk->isReadyToRender()) {
+                        if (gameObjects.find(objectId) == gameObjects.end()) {
+                            gameObjects.emplace(objectId, chunk->getGameObject());
+                        }
+                    } else {
+                        // If chunk is not ready to render, remove it from game objects
+                        auto objIt = gameObjects.find(objectId);
+                        if (objIt != gameObjects.end()) {
+                            gameObjects.erase(objIt);
+                        }
                     }
                 }
             }
@@ -101,11 +111,21 @@ std::shared_ptr<Chunk> ChunkManager::createChunk(const ChunkCoord& coord) {
     auto chunk = std::make_shared<Chunk>(device, gameObject);
     
     // Generate terrain and mesh
-    chunk->generateTerrain();
-    chunk->generateMesh();
-    chunk->updateGameObject();
-    
+    generateTerrain(chunk);
+    updateChunk(chunk);
+       
     return chunk;
 }
 
+void ChunkManager::generateTerrain(std::shared_ptr<Chunk> chunk) {
+    // Generate terrain for the chunk
+    chunk->generateTerrain();
+    
+}
+
+void ChunkManager::updateChunk(std::shared_ptr<Chunk> chunk) {
+    // Update the chunk's game object
+    chunk->generateMesh();
+    chunk->updateGameObject();
 } // namespace vkengine
+}

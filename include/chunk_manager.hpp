@@ -7,6 +7,11 @@
 #include <memory>
 #include <unordered_map>
 #include <glm/glm.hpp>
+#include <thread>
+#include <mutex>
+#include <queue>
+#include <atomic>
+#include <condition_variable>
 
 namespace vkengine {
 
@@ -56,6 +61,29 @@ private:
     
     // Map from chunk coordinates to game object IDs for active chunks
     std::unordered_map<ChunkCoord, GameObject::id_t, ChunkCoord::Hash> m_activeChunks;
+    
+    // Thread-safe queue for chunks waiting to be processed
+    struct ChunkTask {
+        std::shared_ptr<Chunk> chunk;
+        bool needsTerrainGeneration;
+        bool needsMeshUpdate;
+    };
+    std::queue<ChunkTask> m_chunkQueue;
+    std::mutex m_queueMutex;
+    std::condition_variable m_queueCondition;
+    
+    // Worker thread control
+    std::thread m_workerThread;
+    std::atomic<bool> m_threadRunning{true};
+    
+    void updateChunk(std::shared_ptr<Chunk> chunk);
+    void generateTerrain(std::shared_ptr<Chunk> chunk);
+    
+    // Worker thread function that processes chunks in the queue
+    void workerThreadFunction();
+    
+    // Queue a chunk for processing
+    void queueChunkForProcessing(std::shared_ptr<Chunk> chunk, bool needsTerrainGeneration, bool needsMeshUpdate);
 };
 
 } // namespace vkengine

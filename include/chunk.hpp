@@ -7,6 +7,7 @@
 #include <array>
 #include <vector>
 #include <glm/glm.hpp>
+#include <mutex>
 
 namespace vkengine {
 
@@ -70,6 +71,8 @@ public:
     
     // Check if coordinates are within chunk bounds
     bool isInBounds(int x, int y, int z) const;
+    bool isModified() const { return m_modified; }
+    bool isReadyToRender() const { return m_readyToRender; }
     
     // Generate mesh for the chunk
     void generateMesh();
@@ -93,6 +96,10 @@ private:
     
     // Flag to track if mesh needs regeneration
     bool m_modified = true;
+    bool m_readyToRender = false;
+    bool m_generating = false;
+
+    std::mutex m_chunkMutex; // Mutex for thread safety
     
     // Helper function to convert 3D coordinates to a 1D array index
     int coordsToIndex(int x, int y, int z) const;

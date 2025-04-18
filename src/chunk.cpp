@@ -1,5 +1,6 @@
 #include "chunk.hpp"
 #include "game_object.hpp"
+#include "perlin_noise.hpp"
 
 namespace vkengine {
 
@@ -20,82 +21,116 @@ void Chunk::initialize() {
 }
 
 void Chunk::generateTerrain() {
-    // Get the chunk's Y coordinate from the game object's position
-    float chunkYPos = m_gameObject->transform.translation.y;
-    int chunkY = static_cast<int>(chunkYPos / CHUNK_SIZE);
-    
-    // Different terrain generation based on chunk's Y position
-    if (chunkY < 0) {
-        // For chunks above ground level (y > 0), just fill with air
-        // Air is the default, so we don't need to do anything
+    // Lock the chunk to prevent concurrent modifications
+    { 
+        std::lock_guard<std::mutex> lock(m_chunkMutex);
+        // Get the chunk's Y coordinate from the game object's position
+        float chunkYPos = m_gameObject->transform.translation.y;
+        int chunkY = static_cast<int>(chunkYPos / CHUNK_SIZE);
         
-    } else if (chunkY > 0) {
-        // For chunks below ground (y < 0), fill with solid stone
-        fill(0, 0, 0, CHUNK_SIZE - 1, CHUNK_SIZE - 1, CHUNK_SIZE - 1, BlockType::STONE);
-        
-    } else {
-        // For the ground level chunk (y = 0), use the original terrain generation algorithm
-        
-        // Generate a simple heightmap
-        std::array<int, CHUNK_SIZE * CHUNK_SIZE> heightMap;
-        
-        // Generate height values (simple sine wave pattern for demonstration)
-        for (int x = 0; x < CHUNK_SIZE; x++) {
-            for (int z = 0; z < CHUNK_SIZE; z++) {
-                // Simple terrain function using sine waves
-                float heightValue = CHUNK_SIZE / 2.0f;  // Base height at middle of chunk
-                
-                // Add some sine wave variations
-                heightValue += 3.0f * sin(x * 0.4f) + 2.0f * cos(z * 0.3f);
-                
-                // Clamp height to valid range (0 to CHUNK_SIZE-1)
-                int height = static_cast<int>(std::min(std::max(heightValue, 0.0f), static_cast<float>(CHUNK_SIZE - 1)));
-                
-                // Store in heightmap
-                heightMap[x + z * CHUNK_SIZE] = height;
+        // Different terrain generation based on chunk's Y position
+        if (chunkY < 0) {
+            // For chunks above ground level (y > 0), just fill with air
+            // Air is the default, so we don't need to do anything
+            
+        } else if (chunkY > 0) {
+            // For chunks below ground (y < 0), fill with solid stone
+            fill(0, 0, 0, CHUNK_SIZE - 1, CHUNK_SIZE - 1, CHUNK_SIZE - 1, BlockType::STONE);
+            
+        } else {
+            // For the ground level chunk (y = 0), use the original terrain generation algorithm
+            
+            // Generate a simple heightmap
+            std::array<int, CHUNK_SIZE * CHUNK_SIZE> heightMap;
+            
+            // Create a Perlin noise generator with a fixed seed for consistent terrain
+            static PerlinNoise perlin(42);
+            
+            // Scale factors for noise generation
+            const double scale = 0.1;      // Controls the "zoom" level of the terrain
+            const int octaves = 4;         // Number of noise layers to stack
+            const double persistence = 0.5; // How much each octave contributes
+            const double heightScale = 3.0; // Amplifies the terrain height variation
+            const double baseHeight = CHUNK_SIZE / 2.0f; // Base height level
+            
+            // Get chunk world position for continuous terrain across chunks
+            float chunkXPos = m_gameObject->transform.translation.x;
+            float chunkZPos = m_gameObject->transform.translation.z;
+            int chunkX = static_cast<int>(chunkXPos / CHUNK_SIZE);
+            int chunkZ = static_cast<int>(chunkZPos / CHUNK_SIZE);
+            
+            // Generate height values using Perlin noise
+            for (int x = 0; x < CHUNK_SIZE; x++) {
+                for (int z = 0; z < CHUNK_SIZE; z++) {
+                    // Calculate world coordinates for noise input
+                    double worldX = (chunkX * CHUNK_SIZE + x) * scale;
+                    double worldZ = (chunkZ * CHUNK_SIZE + z) * scale;
+                    
+                    // Generate noise value using multiple octaves for more natural terrain
+                    double noiseValue = perlin.octaveNoise(worldX, worldZ, octaves, persistence);
+                    
+                    // Convert the noise from [-1,1] to [0,1] range
+                    noiseValue = (noiseValue + 1.0) * 0.5;
+                    
+                    // Apply height scaling and add base height
+                    float heightValue = baseHeight + static_cast<float>(noiseValue * heightScale);
+                    
+                    // Add some mountains in specific areas (using additional noise function)
+                    double mountainNoise = perlin.noise(worldX * 0.5, worldZ * 0.5);
+                    if (mountainNoise > 0.3) {
+                        // Add higher peaks where mountain noise is strong
+                        heightValue += static_cast<float>((mountainNoise - 0.3) * 12.0);
+                    }
+                    
+                    // Clamp height to valid range (0 to CHUNK_SIZE-1)
+                    int height = static_cast<int>(std::min(std::max(heightValue, 0.0f), static_cast<float>(CHUNK_SIZE - 1)));
+                    
+                    // Store in heightmap
+                    heightMap[x + z * CHUNK_SIZE] = height;
+                }
             }
-        }
-        
-        // Use the heightmap to set blocks
-        for (int x = 0; x < CHUNK_SIZE; x++) {
-            for (int z = 0; z < CHUNK_SIZE; z++) {
-                int height = heightMap[x + z * CHUNK_SIZE];
-                
-                // Invert Y coordinates here: 
-                // CHUNK_SIZE - 1 is the highest Y value in the chunk
-                // We'll map the heights so that higher terrain is at lower Y values (negative Y in rendering)
-                
-                // Top layer is grass (at the lowest Y coordinate)
-                setBlock(x, CHUNK_SIZE - 1 - height, z, BlockType::GRASS);
-                
-                // Add dirt layer
-                for (int y = CHUNK_SIZE - 1 - height + 1; y < CHUNK_SIZE - 1 - height + 4; y++) {
-                    if (y < CHUNK_SIZE) {
-                        setBlock(x, y, z, BlockType::DIRT);
+            
+            // Use the heightmap to set blocks
+            for (int x = 0; x < CHUNK_SIZE; x++) {
+                for (int z = 0; z < CHUNK_SIZE; z++) {
+                    int height = heightMap[x + z * CHUNK_SIZE];
+                    
+                    // Invert Y coordinates here: 
+                    // CHUNK_SIZE - 1 is the highest Y value in the chunk
+                    // We'll map the heights so that higher terrain is at lower Y values (negative Y in rendering)
+                    
+                    // Top layer is grass (at the lowest Y coordinate)
+                    setBlock(x, CHUNK_SIZE - 1 - height, z, BlockType::GRASS);
+                    
+                    // Add dirt layer
+                    for (int y = CHUNK_SIZE - 1 - height + 1; y < CHUNK_SIZE - 1 - height + 4; y++) {
+                        if (y < CHUNK_SIZE) {
+                            setBlock(x, y, z, BlockType::DIRT);
+                        }
                     }
-                }
-                
-                // Fill above surface with stone
-                for (int y = CHUNK_SIZE - 1 - height + 4; y < CHUNK_SIZE; y++) {
-                    if (y < CHUNK_SIZE) {
-                        setBlock(x, y, z, BlockType::STONE);
+                    
+                    // Fill above surface with stone
+                    for (int y = CHUNK_SIZE - 1 - height + 4; y < CHUNK_SIZE; y++) {
+                        if (y < CHUNK_SIZE) {
+                            setBlock(x, y, z, BlockType::STONE);
+                        }
                     }
-                }
-                
-                // Add water in higher areas (which are now at lower Y values)
-                if (height > CHUNK_SIZE * 2 / 3) {
-                    for (int y = CHUNK_SIZE - 1 - height - 1; y >= CHUNK_SIZE - 1 - CHUNK_SIZE / 3; y--) {
-                        if (y >= 0) {
-                            setBlock(x, y, z, BlockType::WATER);
+                    
+                    // Add water in higher areas (which are now at lower Y values)
+                    if (height > CHUNK_SIZE * 2 / 3) {
+                        for (int y = CHUNK_SIZE - 1 - height - 1; y >= CHUNK_SIZE - 1 - CHUNK_SIZE / 3; y--) {
+                            if (y >= 0) {
+                                setBlock(x, y, z, BlockType::WATER);
+                            }
                         }
                     }
                 }
             }
         }
+        
+        // Mark as modified to ensure the mesh gets regenerated
+        m_modified = true;
     }
-    
-    // Mark as modified to ensure the mesh gets regenerated
-    m_modified = true;
 }
 
 void Chunk::fill(int x1, int y1, int z1, int x2, int y2, int z2, BlockType blockType) {
@@ -160,89 +195,95 @@ int Chunk::coordsToIndex(int x, int y, int z) const {
 }
 
 void Chunk::generateMesh() {
-    // Skip mesh generation if the chunk hasn't been modified
-    if (!m_modified) {
-        return;
-    }
-    
-    // Clear previous mesh data
-    m_vertices.clear();
-    m_indices.clear();
-    
-    // For each non-AIR block, check if it has any AIR neighbors (which would make it visible)
-    for (int x = 0; x < CHUNK_SIZE; x++) {
-        for (int y = 0; y < CHUNK_SIZE; y++) {
-            for (int z = 0; z < CHUNK_SIZE; z++) {
-                Block block = getBlock(x, y, z);
-                
-                // Skip air blocks (nothing to render)
-                if (block.type == BlockType::AIR) {
-                    continue;
-                }
-                
-                // Check each of the six faces to see if they are exposed to air
-                // For each exposed face, add vertices and indices to the mesh
-                
-                // Check TOP face (y+)
-                if (y < CHUNK_SIZE - 1) {
-                    if (getBlock(x, y + 1, z).type == BlockType::AIR) {
+    {
+        std::lock_guard<std::mutex> lock(m_chunkMutex);
+        // Check if the chunk is modified before generating the mesh 
+
+        // Skip mesh generation if the chunk hasn't been modified
+        if (!m_modified) {
+            return;
+        }
+        
+        // Clear previous mesh data
+        m_readyToRender = false;
+        m_vertices.clear();
+        m_indices.clear();
+        
+        // For each non-AIR block, check if it has any AIR neighbors (which would make it visible)
+        for (int x = 0; x < CHUNK_SIZE; x++) {
+            for (int y = 0; y < CHUNK_SIZE; y++) {
+                for (int z = 0; z < CHUNK_SIZE; z++) {
+                    Block block = getBlock(x, y, z);
+                    
+                    // Skip air blocks (nothing to render)
+                    if (block.type == BlockType::AIR) {
+                        continue;
+                    }
+                    
+                    // Check each of the six faces to see if they are exposed to air
+                    // For each exposed face, add vertices and indices to the mesh
+                    
+                    // Check TOP face (y+)
+                    if (y < CHUNK_SIZE - 1) {
+                        if (getBlock(x, y + 1, z).type == BlockType::AIR) {
+                            addBlockFace(x, y, z, block.type, Direction::TOP);
+                        }
+                    } else {
+                        // Block is at the chunk boundary, always render the face
                         addBlockFace(x, y, z, block.type, Direction::TOP);
                     }
-                } else {
-                    // Block is at the chunk boundary, always render the face
-                    addBlockFace(x, y, z, block.type, Direction::TOP);
-                }
-                
-                // Check BOTTOM face (y-)
-                if (y > 0) {
-                    if (getBlock(x, y - 1, z).type == BlockType::AIR) {
+                    
+                    // Check BOTTOM face (y-)
+                    if (y > 0) {
+                        if (getBlock(x, y - 1, z).type == BlockType::AIR) {
+                            addBlockFace(x, y, z, block.type, Direction::BOTTOM);
+                        }
+                    } else {
                         addBlockFace(x, y, z, block.type, Direction::BOTTOM);
                     }
-                } else {
-                    addBlockFace(x, y, z, block.type, Direction::BOTTOM);
-                }
-                
-                // Check FRONT face (z-)
-                if (z > 0) {
-                    if (getBlock(x, y, z - 1).type == BlockType::AIR) {
+                    
+                    // Check FRONT face (z-)
+                    if (z > 0) {
+                        if (getBlock(x, y, z - 1).type == BlockType::AIR) {
+                            addBlockFace(x, y, z, block.type, Direction::FRONT);
+                        }
+                    } else {
                         addBlockFace(x, y, z, block.type, Direction::FRONT);
                     }
-                } else {
-                    addBlockFace(x, y, z, block.type, Direction::FRONT);
-                }
-                
-                // Check BACK face (z+)
-                if (z < CHUNK_SIZE - 1) {
-                    if (getBlock(x, y, z + 1).type == BlockType::AIR) {
+                    
+                    // Check BACK face (z+)
+                    if (z < CHUNK_SIZE - 1) {
+                        if (getBlock(x, y, z + 1).type == BlockType::AIR) {
+                            addBlockFace(x, y, z, block.type, Direction::BACK);
+                        }
+                    } else {
                         addBlockFace(x, y, z, block.type, Direction::BACK);
                     }
-                } else {
-                    addBlockFace(x, y, z, block.type, Direction::BACK);
-                }
-                
-                // Check LEFT face (x-)
-                if (x > 0) {
-                    if (getBlock(x - 1, y, z).type == BlockType::AIR) {
+                    
+                    // Check LEFT face (x-)
+                    if (x > 0) {
+                        if (getBlock(x - 1, y, z).type == BlockType::AIR) {
+                            addBlockFace(x, y, z, block.type, Direction::LEFT);
+                        }
+                    } else {
                         addBlockFace(x, y, z, block.type, Direction::LEFT);
                     }
-                } else {
-                    addBlockFace(x, y, z, block.type, Direction::LEFT);
-                }
-                
-                // Check RIGHT face (x+)
-                if (x < CHUNK_SIZE - 1) {
-                    if (getBlock(x + 1, y, z).type == BlockType::AIR) {
+                    
+                    // Check RIGHT face (x+)
+                    if (x < CHUNK_SIZE - 1) {
+                        if (getBlock(x + 1, y, z).type == BlockType::AIR) {
+                            addBlockFace(x, y, z, block.type, Direction::RIGHT);
+                        }
+                    } else {
                         addBlockFace(x, y, z, block.type, Direction::RIGHT);
                     }
-                } else {
-                    addBlockFace(x, y, z, block.type, Direction::RIGHT);
                 }
             }
         }
+        
+        // Mark as not modified since we've just updated the mesh
+        m_modified = false;
     }
-    
-    // Mark as not modified since we've just updated the mesh
-    m_modified = false;
 }
 
 void Chunk::updateGameObject() {
@@ -254,6 +295,7 @@ void Chunk::updateGameObject() {
         builder.indices = m_indices;
         m_gameObject->model = std::make_shared<Model>(device, builder);
     }
+    m_readyToRender = true; // Mark as ready to render
 }
 
 void Chunk::addBlockFace(int x, int y, int z, BlockType blockType, Direction direction) {
