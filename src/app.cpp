@@ -3,7 +3,6 @@
 #include "../include/camera.hpp"
 #include "../include/keyboard_controller.hpp"
 #include "../include/systems/simple_render_system.hpp"
-#include "../include/systems/point_light_system.hpp"
 #include "../include/imgui.hpp"
 #include "../include/chunk.hpp"
 #include "../include/chunk_manager.hpp"
@@ -60,8 +59,6 @@ void App::run() {
     }
  
     SimpleRenderSystem simpleRenderSystem{device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
-    PointLightSystem pointLightSystem{device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()};
-
     Camera camera{};
     camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.0, 0.2f, 1.0f));
 
@@ -96,14 +93,12 @@ void App::run() {
             GlobalUbo ubo{};
             ubo.projection = camera.getProjection() ;
             ubo.view = camera.getView();
-            pointLightSystem.update(frameInfo, ubo);
             uboBuffers[frameIndex]->writeToBuffer(&ubo);
             uboBuffers[frameIndex]->flush();
 
             //render
             renderer.beginSwapChainRenderPass(commandBuffer);
             simpleRenderSystem.renderGameObjects(frameInfo);
-            pointLightSystem.render(frameInfo);
             imgui.debugWindow(frameInfo);
             imgui.render(commandBuffer);
             renderer.endSwapChainRenderPass(commandBuffer); 
