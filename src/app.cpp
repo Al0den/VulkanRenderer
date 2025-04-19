@@ -109,13 +109,4 @@ void App::run() {
     vkDeviceWaitIdle(device.device());
 }
 
-void App::loadGameObjects() {
-    // Create a single point light
-    auto pointLight = GameObject::makePointLight(0.5f);
-    pointLight->color = {1.f, 1.f, 1.f};
-    pointLight->transform.translation = {0.f, CHUNK_SIZE, 0.f};
-    gameObjects.emplace(pointLight->getId(), pointLight);
-
-    // Initial chunks will be created by the ChunkManager during the first update
-    // We don't need to manually create chunks here anymore
-}
+void App::loadGameObjects() {}

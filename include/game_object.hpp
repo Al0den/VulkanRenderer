@@ -28,9 +28,7 @@ class GameObject {
             static id_t currentId = 0;
             return std::make_shared<GameObject>(currentId++); 
         }
-
-        static std::shared_ptr<GameObject> makePointLight(float intensity = 10.f, float radius = 0.1f, glm::vec3 color = glm::vec3(1.f));
-
+        
         id_t getId() const { return id; }
         
         GameObject(const GameObject &) = delete;
