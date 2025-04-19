@@ -19,10 +19,6 @@ struct TransformComponent {
     glm::mat3 normalMatrix();
 };
 
-struct PointLightComponent {
-    float lightIntensity = 1.0f;
-};
-
 class GameObject {
     public:
         using id_t = unsigned int;
@@ -47,7 +43,6 @@ class GameObject {
         TransformComponent transform{};
 
         std::shared_ptr<Model> model{};
-        std::unique_ptr<PointLightComponent> pointLight = nullptr;
 
         std::shared_ptr<Texture> texture = nullptr;
         VkDescriptorSet descriptorSet; //Undefined if texture == nullptr;

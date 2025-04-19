@@ -67,7 +67,6 @@ void SimpleRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
         auto &obj = kv.second;
 
         if(obj->model == nullptr) continue;
-        if(obj->texture != nullptr) continue;
 
         SimplePushConstantData push{};
         push.modelMatrix = obj->transform.mat4();

@@ -87,7 +87,7 @@ void App::run() {
         if (auto commandBuffer = renderer.beginFrame()) {
             imgui.newFrame();
             int frameIndex = renderer.getFrameIndex();
-            FrameInfo frameInfo{frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects, textureManager};
+            FrameInfo frameInfo{frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects};
 
             //update
             GlobalUbo ubo{};

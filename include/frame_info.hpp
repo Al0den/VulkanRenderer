@@ -19,8 +19,6 @@ struct GlobalUbo {
     glm::mat4 projection{1.f};
     glm::mat4 view{1.f};
     glm::vec4 ambientLightColor{1.f, 1.f, 1.f, 0.02f};
-    PointLight pointLights[MAX_LIGHTS];
-    int numLights;
 };
 
 struct FrameInfo {
@@ -30,7 +28,6 @@ struct FrameInfo {
     Camera &camera;
     VkDescriptorSet globalDescriptorSet;
     GameObject::Map &gameObjects;
-    TextureManager &textureManager;
 };
 
 }
