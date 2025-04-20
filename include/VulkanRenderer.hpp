@@ -7,7 +7,6 @@
 #include "pipeline.hpp"
 #include "renderer.hpp"
 #include "systems/simple_render_system.hpp"
-#include "systems/point_light_system.hpp"
 #include "swapchain.hpp"
 #include "window.hpp"
 #include "descriptors.hpp"

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "model.hpp"
-#include "textures.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -42,7 +41,6 @@ class GameObject {
 
         std::shared_ptr<Model> model{};
 
-        std::shared_ptr<Texture> texture = nullptr;
         VkDescriptorSet descriptorSet; //Undefined if texture == nullptr;
 
     public:

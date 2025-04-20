@@ -2,7 +2,6 @@
 
 #include "camera.hpp"
 #include "game_object.hpp"
-#include "textures.hpp"
 
 #include <vulkan/vulkan.h>
 
