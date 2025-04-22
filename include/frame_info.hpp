@@ -2,6 +2,7 @@
 
 #include "camera.hpp"
 #include "game_object.hpp"
+#include "chunk_manager.hpp"
 
 #include <vulkan/vulkan.h>
 
@@ -27,6 +28,7 @@ struct FrameInfo {
     Camera &camera;
     VkDescriptorSet globalDescriptorSet;
     GameObject::Map &gameObjects;
+    ChunkManager* chunkManager = nullptr; // Pointer to the chunk manager for mesh operations
 };
 
 }

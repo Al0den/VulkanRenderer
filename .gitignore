@@ -3,3 +3,4 @@
 VulkanRenderer
 .DS_Store
 build/*
+.vscode/*

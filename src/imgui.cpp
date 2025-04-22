@@ -1,4 +1,5 @@
 #include "../include/imgui.hpp"
+#include "../include/config.hpp"
 #include "../include/frame_info.hpp"
 // libs
 // std
@@ -70,25 +71,94 @@ void Imgui::render(VkCommandBuffer commandBuffer) {
     ImGui_ImplVulkan_RenderDrawData(drawdata, commandBuffer);
 }
 
+void Imgui::updateMeshStats(FrameInfo& frameInfo) {
+    // Get current time
+    float currentTime = ImGui::GetTime();
+    
+    // Update stats if it's time to do so
+    if (currentTime - lastUpdateTime >= updateInterval) {
+        numIndices = 0;
+        numVertices = 0;
+        for(auto& obj : frameInfo.gameObjects) {
+            if(obj.second->model == nullptr) continue;
+            numVertices += obj.second->model->getVertexCount();
+            numIndices += obj.second->model->getIndexCount();
+        }
+        
+        // Update the last update time
+        lastUpdateTime = currentTime;
+    }
+}
+
 void Imgui::debugWindow(FrameInfo& frameInfo) {
+    // Automatically update mesh statistics at regular intervals
+    updateMeshStats(frameInfo);
+    
     {
         static float f = 0.0f;
         static int counter = 0;
         ImGui::Begin("Debug Window");           
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::Text("%d Game Objects", (int)frameInfo.gameObjects.size());
-        if(ImGui::Button("Update Vertices")) {
-            numIndices = 0;
-            numVertices = 0;
-            for(auto& obj : frameInfo.gameObjects) {
-                if(obj.second->model == nullptr) continue;
-                numVertices += obj.second->model->getVertexCount();
-                numIndices += obj.second->model->getIndexCount();
+        ImGui::Text("x: %.2f, y: %.2f, z: %.2f", frameInfo.camera.getPosition().x, frameInfo.camera.getPosition().y, frameInfo.camera.getPosition().z);
+        static float speed = config().getFloat("player_speed");
+        if (ImGui::SliderFloat("Speed", &speed, 10.0f, 120.0f, "%.1f°")) {
+            config().setFloat("player_speed", speed);
+            
+        }
+        ImGui::End();
+    }
+
+    // Create settings window with FOV slider and render distance controls
+    {
+        ImGui::Begin("Settings");
+        
+        // FOV slider
+        static float fov = config().getFloat("fov"); // Default FOV value
+        ImGui::Text("Field of View");
+        if (ImGui::SliderFloat("FOV", &fov, 30.0f, 120.0f, "%.1f°")) {
+            // Update the config when FOV changes
+            config().setFloat("fov", fov);
+        }
+        
+        // Render distance controls
+        static int renderDistance = config().getInt("render_distance"); // Default render distance
+        ImGui::Text("Render Distance: %d chunks", renderDistance);
+        if (ImGui::Button("Decrease")) {
+            if (renderDistance > 1) {
+                renderDistance--;
+                config().setInt("render_distance", renderDistance);
             }
         }
-
-        ImGui::Text("Vertices: %d, Indices: %d", numVertices, numIndices);
-        ImGui::Text("x: %.2f, y: %.2f, z: %.2f", frameInfo.camera.getPosition().x, frameInfo.camera.getPosition().y, frameInfo.camera.getPosition().z);
+        ImGui::SameLine();
+        if (ImGui::Button("Increase")) {
+            if (renderDistance < 16) {
+                renderDistance++;
+                config().setInt("render_distance", renderDistance);
+            }
+        }
+        
+        ImGui::End();
+    }
+    {
+        ImGui::Begin("Performance");
+        
+        // Meshing technique selection
+        static const char* meshingTechniques[] = { "Regular Meshing", "Greedy Meshing" };
+        static int currentMeshingTechnique = config().getInt("meshing_technique");
+        
+        ImGui::Text("Meshing Technique");
+        if (ImGui::Combo("##MeshingTechnique", &currentMeshingTechnique, meshingTechniques, IM_ARRAYSIZE(meshingTechniques))) {
+            config().setInt("meshing_technique", currentMeshingTechnique);
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Meshing technique changed. New chunks will use the selected method.");
+            frameInfo.chunkManager->regenerateAllMeshes();
+        }
+        
+        ImGui::Text("Performance Statistics");
+        ImGui::Text("Vertices: %d", numVertices);
+        ImGui::Text("Indices: %d", numIndices);
+        ImGui::Text("Triangles: %d", numIndices / 3);
+        ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+        
         ImGui::End();
     }
 }

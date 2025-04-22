@@ -36,6 +36,8 @@
         "string_view": "cpp",
         "bit": "cpp",
         "chrono": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "thread": "cpp",
+        "unordered_map": "cpp"
     }
 }

@@ -5,6 +5,7 @@
 #include "../include/systems/simple_render_system.hpp"
 #include "../include/imgui.hpp"
 #include "../include/chunk.hpp"
+#include "../include/config.hpp"
 #include "../include/chunk_manager.hpp"
 
 #include <chrono>
@@ -80,14 +81,14 @@ void App::run() {
         camera.setViewYXZ(viewerObject->transform.translation, viewerObject->transform.rotation);
 
         // Update chunks based on player position and view distance
-        chunkManager->update(viewerObject->transform.translation, CHUNK_VIEW_DISTANCE, gameObjects);
+        chunkManager->update(viewerObject->transform.translation, config().getInt("render_distance"), gameObjects);
 
         float aspect = renderer.getAspectRatio();
-        camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 1000.f);
+        camera.setPerspectiveProjection(glm::radians(config().getFloat("fov")), aspect, 0.1f, 1000.f);
         if (auto commandBuffer = renderer.beginFrame()) {
             imgui.newFrame();
             int frameIndex = renderer.getFrameIndex();
-            FrameInfo frameInfo{frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects};
+            FrameInfo frameInfo{frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects, chunkManager.get()};
 
             //update
             GlobalUbo ubo{};

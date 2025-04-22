@@ -1,10 +1,13 @@
 #include "../include/keyboard_controller.hpp"
+#include "../include/config.hpp"
 
 using namespace vkengine;
 
 
 void KeyboardController::moveInPlaneXZ(GLFWwindow *window, std::shared_ptr<GameObject> gameObject, float deltaTime) {
     glm::vec3 rotate{0.f};
+
+    moveSpeed = config().getFloat("player_speed");
 
     if(glfwGetKey(window, keys.lookRight) == GLFW_PRESS) rotate.y += 1.f;
     if(glfwGetKey(window, keys.lookLeft) == GLFW_PRESS) rotate.y -= 1.f;

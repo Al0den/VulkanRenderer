@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game_object.hpp"
+#include "config.hpp"
 
 namespace vkengine {
 
@@ -22,7 +23,7 @@ public:
     void moveInPlaneXZ(GLFWwindow *window, std::shared_ptr<GameObject> gameObject, float deltaTime);
     
     KeyMappings keys{};
-    float moveSpeed{30.f};
+    float moveSpeed;
     float lookSpeed{1.5f};
 };
 }

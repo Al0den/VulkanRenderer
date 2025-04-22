@@ -7,7 +7,6 @@
 #include <array>
 #include <vector>
 #include <glm/glm.hpp>
-#include <mutex>
 
 namespace vkengine {
 
@@ -27,6 +26,25 @@ enum class BlockType {
 // Size constants for chunk dimensions
 constexpr int CHUNK_SIZE = 16;
 constexpr int CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+
+struct ChunkCoord {
+    int x;
+    int y;
+    int z;
+    
+    bool operator==(const ChunkCoord& other) const {
+        return x == other.x && y == other.y && z == other.z;
+    }
+    
+    // Hash function for ChunkCoord to use in unordered_map
+    struct Hash {
+        std::size_t operator()(const ChunkCoord& coord) const {
+            return std::hash<int>()(coord.x) ^ 
+                   (std::hash<int>()(coord.y) << 1) ^
+                   (std::hash<int>()(coord.z) << 2);
+        }
+    };
+};
 
 struct Block {
     BlockType type;
@@ -71,11 +89,19 @@ public:
     
     // Check if coordinates are within chunk bounds
     bool isInBounds(int x, int y, int z) const;
-    bool isModified() const { return m_modified; }
-    bool isReadyToRender() const { return m_readyToRender; }
+
+    bool defaultTerrainGenerated() const { return m_defaultTerrainGenerated; }
+    bool meshGenerated() const { return m_meshGenerated; }
+    bool upToDate() const { return m_upToDate; }
+    bool isUpdated() const { return m_updated; }
+
+    void setMeshGenerated(bool generated) { m_meshGenerated = generated; }
     
     // Generate mesh for the chunk
-    void generateMesh();
+    void generateMesh(const std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoord::Hash> &chunks);
+    
+    // Generate optimized mesh using greedy meshing algorithm
+    void generateGreedyMesh(const std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoord::Hash> &chunks);
     
     // Update the chunk's game object
     void updateGameObject();
@@ -83,7 +109,18 @@ public:
     // Get the game object associated with this chunk
     std::shared_ptr<GameObject> getGameObject() const { return m_gameObject; }
 
+    bool m_updated = false;
+
 private:
+    // Structure to hash vertex positions for the vertex cache
+    struct VertexPosHash {
+        size_t operator()(const glm::vec3& v) const {
+            return std::hash<float>()(v.x) ^ 
+                  (std::hash<float>()(v.y) << 1) ^ 
+                  (std::hash<float>()(v.z) << 2);
+        }
+    };
+
     // 3D array of blocks
     std::array<Block, CHUNK_VOLUME> m_blocks;
     
@@ -94,18 +131,25 @@ private:
     std::vector<Model::Vertex> m_vertices;
     std::vector<uint32_t> m_indices;
     
+    // Vertex cache for sharing vertices between faces
+    std::unordered_map<glm::vec3, uint32_t, VertexPosHash> m_vertexCache;
+    
     // Flag to track if mesh needs regeneration
-    bool m_modified = true;
-    bool m_readyToRender = false;
-    bool m_generating = false;
+    bool m_defaultTerrainGenerated = false;
+    bool m_meshGenerated = false;
+    bool m_upToDate = false;
 
-    std::mutex m_chunkMutex; // Mutex for thread safety
     
     // Helper function to convert 3D coordinates to a 1D array index
     int coordsToIndex(int x, int y, int z) const;
     
     // Helper function to add a face to the mesh
     void addBlockFace(int x, int y, int z, BlockType blockType, Direction direction);
+    
+    // Helper function for greedy meshing to add a merged face
+    void addGreedyFace(float x, float y, float z, float width, float height, 
+                       BlockType blockType, Direction direction, 
+                       const glm::vec3& normal, bool flipWinding);
     
     // Device reference for creating models
     Device &device;

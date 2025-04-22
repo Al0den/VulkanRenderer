@@ -23,7 +23,7 @@ class App {
         static constexpr int HEIGHT = 1180;
 
         // Chunk view distance (in chunk units)
-        static constexpr int CHUNK_VIEW_DISTANCE = 5;
+        static constexpr int CHUNK_VIEW_DISTANCE = 6;
 
         void run();
 

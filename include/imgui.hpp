@@ -34,7 +34,10 @@ private:
     int numVertices = 0;
     int numIndices = 0;
     Device &device;
+    float lastUpdateTime = 0.0f;
+    const float updateInterval = 0.5f; // Update twice per second
 
+    void updateMeshStats(FrameInfo &frameInfo);
     VkDescriptorPool descriptorPool;
 };
 }
