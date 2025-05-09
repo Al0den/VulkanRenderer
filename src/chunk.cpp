@@ -16,7 +16,7 @@ void Chunk::initialize() {
     fill(0, 0, 0, CHUNK_SIZE - 1, CHUNK_SIZE - 1, CHUNK_SIZE - 1, BlockType::AIR);
 }
 
-void Chunk::generateMesh(const std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoord::Hash> &chunks) {
+void Chunk::generateMesh() {
     m_vertices.clear();
     m_indices.clear();
     m_vertexCache.clear(); // Clear the vertex cache before regenerating the mesh
@@ -26,50 +26,12 @@ void Chunk::generateMesh(const std::unordered_map<ChunkCoord, std::shared_ptr<Ch
     int chunkY = static_cast<int>(chunkPos.y / CHUNK_SIZE);
     int chunkZ = static_cast<int>(chunkPos.z / CHUNK_SIZE);
     
-    Chunk* neighborXPos = nullptr;
-    Chunk* neighborXNeg = nullptr;
-    Chunk* neighborYPos = nullptr;
-    Chunk* neighborYNeg = nullptr;
-    Chunk* neighborZPos = nullptr;
-    Chunk* neighborZNeg = nullptr;
-    
-    ChunkCoord coordXPos{chunkX + 1, chunkY, chunkZ};
-    ChunkCoord coordXNeg{chunkX - 1, chunkY, chunkZ};
-    ChunkCoord coordYPos{chunkX, chunkY + 1, chunkZ};
-    ChunkCoord coordYNeg{chunkX, chunkY - 1, chunkZ};
-    ChunkCoord coordZPos{chunkX, chunkY, chunkZ + 1};
-    ChunkCoord coordZNeg{chunkX, chunkY, chunkZ - 1};
-    
-    auto itXPos = chunks.find(coordXPos);
-    if (itXPos != chunks.end() && itXPos->second->defaultTerrainGenerated()) {
-        neighborXPos = itXPos->second.get();
-    }
-    
-    auto itXNeg = chunks.find(coordXNeg);
-    if (itXNeg != chunks.end() && itXNeg->second->defaultTerrainGenerated()) {
-        neighborXNeg = itXNeg->second.get();
-    }
-    
-    auto itYPos = chunks.find(coordYPos);
-    if (itYPos != chunks.end() && itYPos->second->defaultTerrainGenerated()) {
-        neighborYPos = itYPos->second.get();
-    }
-    
-    auto itYNeg = chunks.find(coordYNeg);
-    if (itYNeg != chunks.end() && itYNeg->second->defaultTerrainGenerated()) {
-        neighborYNeg = itYNeg->second.get();
-    }
-    
-    auto itZPos = chunks.find(coordZPos);
-    if (itZPos != chunks.end() && itZPos->second->defaultTerrainGenerated()) {
-        neighborZPos = itZPos->second.get();
-    }
-    
-    auto itZNeg = chunks.find(coordZNeg);
-    if (itZNeg != chunks.end() && itZNeg->second->defaultTerrainGenerated()) {
-        neighborZNeg = itZNeg->second.get();
-    }
-    
+    std::shared_ptr<Chunk> neighborXPos = m_neighbors[0];
+    std::shared_ptr<Chunk> neighborXNeg = m_neighbors[1];
+    std::shared_ptr<Chunk> neighborYPos = m_neighbors[2];
+    std::shared_ptr<Chunk> neighborYNeg = m_neighbors[3];
+    std::shared_ptr<Chunk> neighborZPos = m_neighbors[4];
+    std::shared_ptr<Chunk> neighborZNeg = m_neighbors[5];
 
     for (int x = 0; x < CHUNK_SIZE; x++) {
         for (int y = 0; y < CHUNK_SIZE; y++) {

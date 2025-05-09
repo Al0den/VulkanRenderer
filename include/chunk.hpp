@@ -7,6 +7,7 @@
 #include <array>
 #include <vector>
 #include <glm/glm.hpp>
+#include <mutex>
 
 namespace vkengine {
 
@@ -98,7 +99,7 @@ public:
     void setMeshGenerated(bool generated) { m_meshGenerated = generated; }
     
     // Generate mesh for the chunk
-    void generateMesh(const std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoord::Hash> &chunks);
+    void generateMesh();
     
     // Generate optimized mesh using greedy meshing algorithm
     void generateGreedyMesh(const std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoord::Hash> &chunks);
@@ -110,6 +111,30 @@ public:
     std::shared_ptr<GameObject> getGameObject() const { return m_gameObject; }
 
     bool m_updated = false;
+
+    std::mutex m_mutex;
+
+    ChunkCoord getChunkCoord() const {
+        return { static_cast<int>(m_gameObject->transform.translation.x / CHUNK_SIZE),
+                 static_cast<int>(m_gameObject->transform.translation.y / CHUNK_SIZE),
+                 static_cast<int>(m_gameObject->transform.translation.z / CHUNK_SIZE) };
+    }
+
+    bool allNeighborsLoaded() const {
+        for (const auto& neighbor : m_neighbors) {
+            if (!neighbor) return false;
+        }
+        return true;
+    }
+
+    std::array<std::shared_ptr<Chunk>, 6> m_neighbors{nullptr};
+
+    void clearMesh() {
+        m_vertices.clear();
+        m_indices.clear();
+        m_vertexCache.clear();
+        m_meshGenerated = false;
+    }
 
 private:
     // Structure to hash vertex positions for the vertex cache
@@ -153,6 +178,8 @@ private:
     
     // Device reference for creating models
     Device &device;
+
+    
 };
 
 } // namespace vkengine

@@ -142,7 +142,7 @@ bool Config::saveToFile(const std::string& filename) const {
 
 void Config::initDefaults() {
     // Graphics settings
-    setInt("render_distance", 8);
+    setInt("render_distance", 4);
     setInt("meshing_technique", 0); // 0: Simple, 1: Greedy
     setFloat("player_speed", 30.0f);
     setFloat("fov", 60.0f);

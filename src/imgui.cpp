@@ -210,11 +210,6 @@ void Imgui::showPerformanceTab() {
         } else {
             ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "No timer data available");
         }
-        
-        // Add refresh button
-        if (ImGui::Button("Refresh Timer Data")) {
-            // Timer data is automatically updated when accessed, no need to do anything here
-        }
     }
     
     ImGui::End();
@@ -280,7 +275,6 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
         if (ImGui::Combo("##MeshingTechnique", &currentMeshingTechnique, meshingTechniques, IM_ARRAYSIZE(meshingTechniques))) {
             config().setInt("meshing_technique", currentMeshingTechnique);
             ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Meshing technique changed. New chunks will use the selected method.");
-            frameInfo.chunkManager->regenerateAllMeshes();
         }
         
         ImGui::Text("Statistics");

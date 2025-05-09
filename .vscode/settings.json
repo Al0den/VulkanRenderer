@@ -71,6 +71,18 @@
         "random": "cpp",
         "type_traits": "cpp",
         "utility": "cpp",
-        "ranges": "cpp"
+        "ranges": "cpp",
+        "semaphore": "cpp",
+        "cfenv": "cpp",
+        "ostream": "cpp",
+        "span": "cpp",
+        "typeindex": "cpp",
+        "atomic": "cpp",
+        "bit": "cpp",
+        "concepts": "cpp",
+        "exception": "cpp",
+        "functional": "cpp",
+        "memory_resource": "cpp",
+        "stdfloat": "cpp"
     }
 }

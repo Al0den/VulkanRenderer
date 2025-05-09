@@ -74,9 +74,11 @@ void App::run() {
 
     // Debounce for render mode toggle
     bool rKeyPressedLastFrame = false;
+    
+    ScopeTimer globalTimer("global");
 
     while (!window.shouldClose()) {
-        ScopeTimer globalTimer("global");
+        
         glfwPollEvents();
 
         // Render Mode Toggle Logic
