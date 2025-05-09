@@ -1,7 +1,10 @@
 #include "../include/chunk_manager.hpp"
 #include "../include/config.hpp"
+#include "../include/scope_timer.hpp"
 
 #include <thread>
+
+using ScopeTimer = GlobalTimerData::ScopeTimer;
 
 namespace vkengine {
 
@@ -35,48 +38,67 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
                 ChunkCoord coord{x, y, z};
                 
                 // Check if the chunk is within the view distance (using squared distance for efficiency)
+                
                 if (isChunkInRange(coord, centerChunk, viewDistance)) {
                     // Check if chunk already exists
                     auto it = m_chunks.find(coord);
                     std::shared_ptr<Chunk> chunk;
+
+                    {
+                        ScopeTimer timer("ChunkManager::createChunk");
+                        if (it == m_chunks.end()) {
+                            // Create new chunk
+                            chunk = createChunk(coord);
+                            m_chunks[coord] = chunk;
+                        } else {
+                            chunk = it->second;
+                        }
+                    }
                     
-                    if (it == m_chunks.end()) {
-                        // Create new chunk
-                        chunk = createChunk(coord);
-                        m_chunks[coord] = chunk;
-                    } else {
-                        chunk = it->second;
+                    {
+                        ScopeTimer timer("ChunkManager::regenerateNeighborsMesh");
+                        if(chunk->isUpdated()) {
+                            std::thread t(regenerateNeighborsMesh, this, chunk);
+                            t.detach();
+                            chunk->m_updated = false;
+                        }
                     }
-
-                    if(chunk->isUpdated()) {
-                        //std::thread t(regenerateNeighborsMesh, this, chunk);
-                        //t.detach();
-                        chunk->m_updated = false;
-                    }
-
-                    if(!chunk->defaultTerrainGenerated()) {
-                        std::thread terrainThread(generateTerrainThread, this, chunk);
-                        terrainThread.detach();
-                        continue;
-                    }
-
-                    if(!chunk->meshGenerated()) {
-                        std::thread meshThread(generateMeshThread, this, chunk);
-                        meshThread.detach();
-                        continue;
-                    }
-
-                    if(!chunk->upToDate()) {
-                        chunk->updateGameObject();
-                    }
-
                     
-                    // Get game object ID and add to new active chunks
-                    GameObject::id_t objectId = chunk->getGameObject()->getId();
-                    newActiveChunks[coord] = objectId;
-                    if (gameObjects.find(objectId) == gameObjects.end()) {
-                        gameObjects.emplace(objectId, chunk->getGameObject());
+                    {
+                        ScopeTimer timer("ChunkManager::generateTerrain");
+                        if(!chunk->defaultTerrainGenerated()) {
+                            std::thread terrainThread(generateTerrainThread, this, chunk);
+                            terrainThread.detach();
+                            continue;
+                        }
                     }
+                    
+                    {
+                        ScopeTimer timer("ChunkManager::generateMesh");
+                        if(!chunk->meshGenerated()) {
+                            std::thread meshThread(generateMeshThread, this, chunk);
+                            meshThread.detach();
+                            continue;
+                        }
+                    }
+                    
+                    {
+                        ScopeTimer timer("ChunkManager::updateGameObject");
+                        if(!chunk->upToDate()) {
+                            chunk->updateGameObject();
+                        }
+                    }
+
+                    {
+                        ScopeTimer timer("ChunkManager::updateActiveChunks");
+                        // Get game object ID and add to new active chunks
+                        GameObject::id_t objectId = chunk->getGameObject()->getId();
+                        newActiveChunks[coord] = objectId;
+                        if (gameObjects.find(objectId) == gameObjects.end()) {
+                            gameObjects.emplace(objectId, chunk->getGameObject());
+                        }
+                    }
+                    
                 }
             }
         }
@@ -208,7 +230,7 @@ void regenerateNeighborsMesh(ChunkManager *manager, std::shared_ptr<Chunk> chunk
 }
 
 void generateMeshThread(ChunkManager *manager, std::shared_ptr<Chunk> chunk) {
-    {
+    {   
         std::lock_guard<std::mutex> lock(manager->currentlyGeneratingMeshesMutex);
         if (std::find(manager->currentlyGeneratingMeshes.begin(), manager->currentlyGeneratingMeshes.end(), std::hash<std::shared_ptr<Chunk>>()(chunk)) != manager->currentlyGeneratingMeshes.end()) {
             return; // Already generating this chunk
@@ -235,25 +257,12 @@ void generateMeshThread(ChunkManager *manager, std::shared_ptr<Chunk> chunk) {
 }
 
 void ChunkManager::regenerateAllMeshes() {
-    // Mark all chunks for mesh regeneration
-    int chunksToRegenerate = 0;
     
     for (auto& [coord, chunk] : m_chunks) {
-        // Only regenerate meshes for chunks that have already generated terrain
         if (chunk->defaultTerrainGenerated()) {
-            // Mark the chunk for mesh regeneration
             chunk->setMeshGenerated(false);
-            chunksToRegenerate++;
-            
-            // Start the mesh generation in a separate thread
-            std::thread meshThread(generateMeshThread, this, chunk);
-            meshThread.detach();
         }
     }
-    
-    // Log the number of chunks being regenerated
-    std::cout << "Regenerating meshes for " << chunksToRegenerate << " chunks using meshing technique: " 
-              << (config().getInt("meshing_technique") == 0 ? "Regular Meshing" : "Greedy Meshing") << std::endl;
 }
 
 }

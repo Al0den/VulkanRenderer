@@ -751,6 +751,10 @@ void Chunk::updateGameObject() {
         builder.vertices = m_vertices;
         builder.indices = m_indices;
         m_gameObject->model = std::make_shared<Model>(device, builder);
+    } else {
+        if (m_gameObject.get() == nullptr) {
+            throw std::runtime_error("GameObject is null");
+        }
     }
 
     m_upToDate = true;

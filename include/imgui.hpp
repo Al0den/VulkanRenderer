@@ -28,7 +28,7 @@ public:
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     void debugWindow(FrameInfo &frameInfo);
-
+    void showPerformanceTab();  // New method for performance tab
 
 private:
     int numVertices = 0;
@@ -38,6 +38,7 @@ private:
     const float updateInterval = 0.5f; // Update twice per second
 
     void updateMeshStats(FrameInfo &frameInfo);
+    
     VkDescriptorPool descriptorPool;
 };
 }

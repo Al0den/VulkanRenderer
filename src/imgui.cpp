@@ -1,9 +1,15 @@
 #include "../include/imgui.hpp"
 #include "../include/config.hpp"
 #include "../include/frame_info.hpp"
+#include "../include/scope_timer.hpp"
 // libs
 // std
 #include <stdexcept>
+#include <functional>
+#include <iomanip>
+#include <sstream>
+#include <string>
+
 namespace vkengine {
 // ok this just initializes imgui using the provided integration files. So in our case we need to
 // initialize the vulkan and glfw imgui implementations, since that's what our engine is built
@@ -90,6 +96,130 @@ void Imgui::updateMeshStats(FrameInfo& frameInfo) {
     }
 }
 
+void Imgui::showPerformanceTab() {
+    // Access the global timer data
+    const auto& timerData = GlobalTimerData::get();
+    
+    ImGui::Begin("Performance");
+    
+    if (ImGui::CollapsingHeader("Scope Timers", ImGuiTreeNodeFlags_DefaultOpen)) {
+        // Check if there are any timers
+        bool hasTimers = timerData.begin() != timerData.end();
+        
+        if (hasTimers) {
+            // Find the "globa" timer to use as reference
+            double globalTime = 0.0;
+            std::vector<std::pair<std::string, double>> timerValues;
+            
+            // First pass: find global timer and collect all timer values
+            for (const auto& timer : timerData) {
+                // Convert the timer value to string first and then to double
+                std::stringstream timerStream;
+                timerStream << timer.second;
+                std::string timerStr = timerStream.str();
+                double timeValue;
+                
+                try {
+                    // Extract the numerical part from the timer string
+                    size_t pos;
+                    timeValue = std::stod(timerStr, &pos);
+                } catch (const std::exception& e) {
+                    timeValue = 0.0; // Default if conversion fails
+                }
+                
+                // Check if this is the global timer
+                if (timer.first == "global") {
+                    globalTime = timeValue;
+                }
+                
+                timerValues.push_back({timer.first, timeValue});
+            }
+            
+            // Table for organized display
+            ImGui::BeginTable("TimersTable", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg);
+            ImGui::TableSetupColumn("Timer ID", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableSetupColumn("% of Global Timer", ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableHeadersRow();
+            
+            // Second pass: display each timer's data with proportion relative to globa timer
+            for (const auto& timerPair : timerValues) {
+                const auto& timerName = timerPair.first;
+                double timeValue = timerPair.second;
+                
+                // Calculate proportion relative to the global timer
+                double proportion = 0.0;
+                if (globalTime > 0.0) {
+                    proportion = (timeValue / globalTime) * 100.0;
+                }
+                
+                // Skip showing the globa timer itself in the proportion column
+                bool isGlobalTimer = (timerName == "global");
+                if (isGlobalTimer) {
+                    continue;
+                }
+                
+                ImGui::TableNextRow();
+                
+                // Timer ID column
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(timerName.c_str());
+                
+                // Time column with proper units
+                ImGui::TableSetColumnIndex(1);
+                std::stringstream timeStream;
+                timeStream << std::fixed << std::setprecision(2);
+                
+                if (timeValue < 1000.0) {
+                    timeStream << timeValue << " ns";
+                } else if (timeValue < 1000000.0) {
+                    timeStream << (timeValue / 1000.0) << " μs";
+                } else if (timeValue < 1000000000.0) {
+                    timeStream << (timeValue / 1000000.0) << " ms";
+                } else {
+                    timeStream << (timeValue / 1000000000.0) << " s";
+                }
+                
+                ImGui::Text("%s", timeStream.str().c_str());
+                
+                // Proportion column with progress bar
+                ImGui::TableSetColumnIndex(2);
+                if (isGlobalTimer) {
+                    ImGui::TextUnformatted("100.0%");
+                } else {
+                    std::stringstream propStream;
+                    propStream << std::fixed << std::setprecision(1) << proportion << "%";
+                    ImGui::ProgressBar(proportion / 100.0, ImVec2(-1, 0), propStream.str().c_str());
+                }
+            }
+            ImGui::EndTable();
+            
+            // Display global timer reference
+            std::stringstream globalTimeStr;
+            globalTimeStr << std::fixed << std::setprecision(2);
+            if (globalTime < 1000.0) {
+                globalTimeStr << "Global timer: " << globalTime << " ns";
+            } else if (globalTime < 1000000.0) {
+                globalTimeStr << "Global timer: " << (globalTime / 1000.0) << " μs";
+            } else if (globalTime < 1000000000.0) {
+                globalTimeStr << "Global timer: " << (globalTime / 1000000.0) << " ms";
+            } else {
+                globalTimeStr << "Global timer: " << (globalTime / 1000000000.0) << " s";
+            }
+            ImGui::Text("%s", globalTimeStr.str().c_str());
+        } else {
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "No timer data available");
+        }
+        
+        // Add refresh button
+        if (ImGui::Button("Refresh Timer Data")) {
+            // Timer data is automatically updated when accessed, no need to do anything here
+        }
+    }
+    
+    ImGui::End();
+}
+
 void Imgui::debugWindow(FrameInfo& frameInfo) {
     // Automatically update mesh statistics at regular intervals
     updateMeshStats(frameInfo);
@@ -140,7 +270,7 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
         ImGui::End();
     }
     {
-        ImGui::Begin("Performance");
+        ImGui::Begin("Meshing");
         
         // Meshing technique selection
         static const char* meshingTechniques[] = { "Regular Meshing", "Greedy Meshing" };
@@ -153,7 +283,7 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
             frameInfo.chunkManager->regenerateAllMeshes();
         }
         
-        ImGui::Text("Performance Statistics");
+        ImGui::Text("Statistics");
         ImGui::Text("Vertices: %d", numVertices);
         ImGui::Text("Indices: %d", numIndices);
         ImGui::Text("Triangles: %d", numIndices / 3);
@@ -161,5 +291,8 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
         
         ImGui::End();
     }
+    
+    // Show the performance tab with scope timer information
+    showPerformanceTab();
 }
 }

@@ -7,6 +7,7 @@
 #include "../include/chunk.hpp"
 #include "../include/config.hpp"
 #include "../include/chunk_manager.hpp"
+#include "../include/scope_timer.hpp"
 
 #include <chrono>
 #include <vulkan/vulkan_core.h>
@@ -17,6 +18,7 @@
 #include <glm/gtc/constants.hpp>
 
 using namespace vkengine;
+using ScopeTimer = GlobalTimerData::ScopeTimer;
 
 App::App() { 
     globalPool = DescriptorPool::Builder(device)
@@ -71,6 +73,7 @@ void App::run() {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     while (!window.shouldClose()) {
+        ScopeTimer globalTimer("global");
         glfwPollEvents();
 
         auto newTime = std::chrono::high_resolution_clock::now();
@@ -81,11 +84,15 @@ void App::run() {
         camera.setViewYXZ(viewerObject->transform.translation, viewerObject->transform.rotation);
 
         // Update chunks based on player position and view distance
-        chunkManager->update(viewerObject->transform.translation, config().getInt("render_distance"), gameObjects);
-
+        
         float aspect = renderer.getAspectRatio();
         camera.setPerspectiveProjection(glm::radians(config().getFloat("fov")), aspect, 0.1f, 1000.f);
         if (auto commandBuffer = renderer.beginFrame()) {
+            {
+                ScopeTimer timer("ChunkManager");
+                chunkManager->update(viewerObject->transform.translation, config().getInt("render_distance"), gameObjects);
+            }
+            
             imgui.newFrame();
             int frameIndex = renderer.getFrameIndex();
             FrameInfo frameInfo{frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects, chunkManager.get()};
