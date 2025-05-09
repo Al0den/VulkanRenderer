@@ -107,7 +107,7 @@ void Imgui::showPerformanceTab() {
         bool hasTimers = timerData.begin() != timerData.end();
         
         if (hasTimers) {
-            // Find the "globa" timer to use as reference
+            // Find the "global" timer to use as reference
             double globalTime = 0.0;
             std::vector<std::pair<std::string, double>> timerValues;
             
@@ -275,6 +275,7 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
         if (ImGui::Combo("##MeshingTechnique", &currentMeshingTechnique, meshingTechniques, IM_ARRAYSIZE(meshingTechniques))) {
             config().setInt("meshing_technique", currentMeshingTechnique);
             ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Meshing technique changed. New chunks will use the selected method.");
+            frameInfo.chunkManager->regenerateEntireMesh();
         }
         
         ImGui::Text("Statistics");

@@ -20,13 +20,16 @@ static int numNeighbors = sizeof(neighborOffsets) / sizeof(neighborOffsets[0]);
 namespace vkengine {
 
 ChunkManager::ChunkManager(Device& deviceRef) : device{deviceRef} {
-    // Initialize the chunk manager
-    for (int i = 0; i < numCreationThreads; ++i) {
+    for (int i = 0; i < numTerrainThreads; ++i) {
         threads.emplace_back(&ChunkManager::chunksTerrainGenerationThread, this);
     }
 
-    for (int i = 0; i < numTerrainThreads; ++i) {
+    for (int i = 0; i < numMeshThreads; ++i) {
         threads.emplace_back(&ChunkManager::chunksMeshUpdateThread, this);
+    }
+
+    for (int i = 0; i < numCreationThreads; ++i) {
+        threads.emplace_back(&ChunkManager::chunksCreationThread, this);
     }
 }
 
@@ -36,6 +39,7 @@ ChunkManager::~ChunkManager() {
 
 void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObject::Map& gameObjects) {
     // Convert world position to chunk coordinates
+    
     ChunkCoord centerChunk = worldToChunkCoord(playerPos);
     
     // Create a set for new active chunks
@@ -44,6 +48,7 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
     // Define vertical view range (how many chunks up and down to render)
     // Using a smaller value for vertical range since worlds are typically wider than tall
     int verticalViewRange = viewDistance / 2 + 1;  // Adjust as needed
+    
     
     // Generate/update chunks within view distance in 3D space
     for (int x = centerChunk.x - viewDistance; x <= centerChunk.x + viewDistance; x++) {
@@ -57,21 +62,26 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
                     // Check if chunk already exists
                     
                     std::shared_ptr<Chunk> chunk;
-
-                    {
+                    
+                    { 
                         ScopeTimer timer("ChunkManager::createChunk");
-                        std::lock_guard<std::mutex> lock(chunksMutex);
-                        auto it = m_chunks.find(coord);
-                        if (it == m_chunks.end()) {
-                            // Create new chunk
-                            chunk = createChunk(coord);
-                            m_chunks[coord] = chunk;
-                        } else {
-                            chunk = it->second;
+                        {
+                            
+                            std::shared_lock<std::shared_mutex> lock(chunksMutex);
+                            auto it = m_chunks.find(coord);
+                            lock.unlock();
+                            
+                            if (it == m_chunks.end()) {
+                                std::lock_guard<std::mutex> lock(creationMutex);
+                                chunksNeedingCreating.push(coord);
+                                creationSemaphore.release();
+                                continue;
+                            } else {
+                                chunk = it->second;
+                            }
                         }
                     }
 
-                    bool change = false;
                     {
                         ScopeTimer timer("ChunkManager::generateTerrain");
                         if(!chunk->defaultTerrainGenerated()) {
@@ -79,7 +89,6 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
                                 std::lock_guard<std::mutex> lock(terrainMutex);
                                 chunksNeedingTerrainGeneration.push(chunk);
                                 terrainSemaphore.release();
-                                change = true;
                             }
                             continue;
                         }
@@ -126,6 +135,8 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
     for (const auto& [coord, objectId] : m_activeChunks) {
         if (newActiveChunks.find(coord) == newActiveChunks.end()) {
             gameObjects.erase(objectId);
+
+            std::shared_lock<std::shared_mutex> lock(chunksMutex);
 
             auto it = m_chunks.find(coord);
             if (it != m_chunks.end()) {
@@ -215,6 +226,29 @@ void ChunkManager::chunksTerrainGenerationThread() {
     }
 }
 
+void ChunkManager::chunksCreationThread() {
+    while (!stopThreads) {
+        creationSemaphore.acquire();
+        if (stopThreads) break;
+        
+        ChunkCoord chunkToGenerate;
+        {
+            std::lock_guard<std::mutex> lock(creationMutex);
+            if (chunksNeedingCreating.empty()) continue;
+            chunkToGenerate = chunksNeedingCreating.front();
+            chunksNeedingCreating.pop();
+        }
+
+        std::shared_ptr<Chunk> chunk;
+
+        chunk = createChunk(chunkToGenerate);
+        {
+            std::unique_lock<std::shared_mutex> lock(chunksMutex);
+            m_chunks[chunkToGenerate] = chunk;
+        }
+    }
+}
+
 void ChunkManager::chunksMeshUpdateThread() {
     while (!stopThreads) {
         meshSemaphore.acquire();
@@ -231,7 +265,7 @@ void ChunkManager::chunksMeshUpdateThread() {
         if(chunk) {
             bool anyNeighborMissing = false;
             {
-                std::lock_guard<std::mutex> mainLock(chunksMutex); // Lock the main container while copying neighbors
+                 // Lock the main container while copying neighbors
                 ChunkCoord chunkCoord = chunk->getChunkCoord();
 
                 if(!chunk->allNeighborsLoaded()) {
@@ -242,7 +276,9 @@ void ChunkManager::chunksMeshUpdateThread() {
                             int neighborZ = chunkCoord.z + neighborOffsets[i][2];
 
                             ChunkCoord neighborCoord{neighborX, neighborY, neighborZ};
+                            std::shared_lock<std::shared_mutex> mainLock(chunksMutex);
                             auto it = m_chunks.find(neighborCoord);
+                            
                             if (it != m_chunks.end()) {
                                 if(it->second->defaultTerrainGenerated()) {
                                     chunk->m_neighbors[i] = it->second;
@@ -268,9 +304,22 @@ void ChunkManager::chunksMeshUpdateThread() {
             {
                 std::lock_guard<std::mutex> lock(chunk->m_mutex);
                 if(!chunk->meshGenerated()) {
-                    chunk->generateMesh();
+                    if(static_cast<MeshingTechnique>(config().getInt("meshing_technique")) == MeshingTechnique::SIMPLE) {
+                        chunk->generateMesh();
+                    } else if(static_cast<MeshingTechnique>(config().getInt("meshing_technique")) == MeshingTechnique::GREEDY) {
+                        chunk->generateGreedyMesh(); // Assuming generateGreedyMesh() is a valid method
+                    }
                 }
             }
+        }
+    }
+}
+
+void ChunkManager::regenerateEntireMesh() {
+    for (auto& chunkPair : m_chunks) {
+        auto& chunk = chunkPair.second;
+        if (chunk) {
+            chunk->setMeshGenerated(false);
         }
     }
 }

@@ -1,10 +1,10 @@
 #include "scope_timer.hpp"
 
 TimerTotal::TimerTotal() 
-  : elapsed_time_init(Clock::now()) {}
+  : elapsed_time_init(Clock::now()), elapsed_time_total(TimerPrecision::zero()) {}
 
 TimerTotal::TimerTotal(TimerCounter elapsed_time_init)
-  : elapsed_time_init(elapsed_time_init) {}
+  : elapsed_time_init(elapsed_time_init), elapsed_time_total(TimerPrecision::zero()) {}
 
 
 TimerTotal& TimerTotal::operator+=(const TimerTotal& tt) {

@@ -74,10 +74,11 @@ void App::run() {
 
     // Debounce for render mode toggle
     bool rKeyPressedLastFrame = false;
+
     
-    ScopeTimer globalTimer("global");
 
     while (!window.shouldClose()) {
+        ScopeTimer globalTimer("global");
         
         glfwPollEvents();
 
@@ -107,8 +108,10 @@ void App::run() {
         float aspect = renderer.getAspectRatio();
         camera.setPerspectiveProjection(glm::radians(config().getFloat("fov")), aspect, 0.1f, 1000.f);
         if (auto commandBuffer = renderer.beginFrame()) {
+            
             {
                 ScopeTimer timer("ChunkManager");
+                
                 chunkManager->update(viewerObject->transform.translation, config().getInt("render_distance"), gameObjects);
             }
             

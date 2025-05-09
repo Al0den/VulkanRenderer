@@ -14,6 +14,11 @@ class Config;
 // Singleton instance accessor
 Config& config();
 
+enum class MeshingTechnique {
+    SIMPLE,
+    GREEDY
+};
+
 /**
  * Configuration system that allows runtime modification of engine settings
  */

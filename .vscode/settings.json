@@ -83,6 +83,7 @@
         "exception": "cpp",
         "functional": "cpp",
         "memory_resource": "cpp",
-        "stdfloat": "cpp"
+        "stdfloat": "cpp",
+        "shared_mutex": "cpp"
     }
 }

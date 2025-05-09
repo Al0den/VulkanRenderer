@@ -10,6 +10,7 @@
 #include <semaphore>
 #include <thread>
 #include <mutex>
+#include <shared_mutex>
 
 #include <queue>
 #include <atomic>
@@ -33,18 +34,20 @@ public:
 
     std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoord::Hash> m_chunks;
 
+    void regenerateEntireMesh();
+
 private:
     Device& device;
     
     std::unordered_map<ChunkCoord, GameObject::id_t, ChunkCoord::Hash> m_activeChunks;
 
-    std::queue<std::shared_ptr<Chunk>> chunksNeedingCreating;
+    std::queue<ChunkCoord> chunksNeedingCreating;
     std::queue<std::shared_ptr<Chunk>> chunksNeedingTerrainGeneration;
     std::queue<std::shared_ptr<Chunk>> chunksNeedingMeshUpdate;
 
     std::vector<std::thread> threads;
 
-    std::mutex chunksMutex;
+    std::shared_mutex chunksMutex;
 
     int numCreationThreads = 4;
     int numTerrainThreads = 4;
@@ -52,12 +55,15 @@ private:
 
     void chunksTerrainGenerationThread();
     void chunksMeshUpdateThread();
+    void chunksCreationThread();
 
     std::atomic<bool> stopThreads{false};
 
+    std::counting_semaphore<1024> creationSemaphore{0};
     std::counting_semaphore<1024> terrainSemaphore{0};
     std::counting_semaphore<1024> meshSemaphore{0};
-
+    
+    std::mutex creationMutex;
     std::mutex terrainMutex;
     std::mutex meshMutex;
     

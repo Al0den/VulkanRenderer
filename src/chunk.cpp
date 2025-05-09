@@ -121,345 +121,176 @@ void Chunk::generateMesh() {
     m_upToDate = false;
 }
 
-void Chunk::generateGreedyMesh(const std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoord::Hash> &chunks) {
+void Chunk::generateGreedyMesh() {
     m_vertices.clear();
     m_indices.clear();
+    m_vertexCache.clear(); // Clear the vertex cache before regenerating the mesh
     
-    // Get chunk position and calculate chunk coordinates
     glm::vec3 chunkPos = m_gameObject->transform.translation;
     int chunkX = static_cast<int>(chunkPos.x / CHUNK_SIZE);
     int chunkY = static_cast<int>(chunkPos.y / CHUNK_SIZE);
     int chunkZ = static_cast<int>(chunkPos.z / CHUNK_SIZE);
     
-    // Find neighboring chunks
-    Chunk* neighborXPos = nullptr;
-    Chunk* neighborXNeg = nullptr;
-    Chunk* neighborYPos = nullptr;
-    Chunk* neighborYNeg = nullptr;
-    Chunk* neighborZPos = nullptr;
-    Chunk* neighborZNeg = nullptr;
-    
-    // Define chunk coordinates for neighbors
-    ChunkCoord coordXPos{chunkX + 1, chunkY, chunkZ};
-    ChunkCoord coordXNeg{chunkX - 1, chunkY, chunkZ};
-    ChunkCoord coordYPos{chunkX, chunkY + 1, chunkZ};
-    ChunkCoord coordYNeg{chunkX, chunkY - 1, chunkZ};
-    ChunkCoord coordZPos{chunkX, chunkY, chunkZ + 1};
-    ChunkCoord coordZNeg{chunkX, chunkY, chunkZ - 1};
-    
-    // Look up neighbors from chunks map
-    auto itXPos = chunks.find(coordXPos);
-    auto itXNeg = chunks.find(coordXNeg);
-    auto itYPos = chunks.find(coordYPos);
-    auto itYNeg = chunks.find(coordYNeg);
-    auto itZPos = chunks.find(coordZPos);
-    auto itZNeg = chunks.find(coordZNeg);
+    std::shared_ptr<Chunk> neighborXPos = m_neighbors[0];
+    std::shared_ptr<Chunk> neighborXNeg = m_neighbors[1];
+    std::shared_ptr<Chunk> neighborYPos = m_neighbors[2];
+    std::shared_ptr<Chunk> neighborYNeg = m_neighbors[3];
+    std::shared_ptr<Chunk> neighborZPos = m_neighbors[4];
+    std::shared_ptr<Chunk> neighborZNeg = m_neighbors[5];
 
-    if (itXPos != chunks.end() && itXPos->second->defaultTerrainGenerated()) {
-        neighborXPos = itXPos->second.get();
-    }
+    // Temporary arrays to store visibility and block type information
+    // Each entry will store -1 for empty/hidden faces, or a value >=0 representing the block type
+    std::vector<int> visibilityMask(CHUNK_SIZE * CHUNK_SIZE, -1);
     
-    
-    if (itXNeg != chunks.end() && itXNeg->second->defaultTerrainGenerated()) {
-        neighborXNeg = itXNeg->second.get();
-    }
-    
-    if (itYPos != chunks.end() && itYPos->second->defaultTerrainGenerated()) {
-        neighborYPos = itYPos->second.get();
-    }
-    
-    if (itYNeg != chunks.end() && itYNeg->second->defaultTerrainGenerated()) {
-        neighborYNeg = itYNeg->second.get();
-    }
-    
-    if (itZPos != chunks.end() && itZPos->second->defaultTerrainGenerated()) {
-        neighborZPos = itZPos->second.get();
-    }   
-    
-    if (itZNeg != chunks.end() && itZNeg->second->defaultTerrainGenerated()) {
-        neighborZNeg = itZNeg->second.get();
-    }
-    
-    std::array<std::array<bool, CHUNK_SIZE * CHUNK_SIZE>, 6> faceMasks;
-    std::array<std::array<BlockType, CHUNK_SIZE * CHUNK_SIZE>, 6> faceTypes;
-    
-    // Direction indices for more concise code
-    const int TOP = 0, BOTTOM = 1, FRONT = 2, BACK = 3, LEFT = 4, RIGHT = 5;
-    
-    // Generate mask for RIGHT faces (X+)
-    for (int y = 0; y < CHUNK_SIZE; y++) {
-        for (int z = 0; z < CHUNK_SIZE; z++) {
-            for (int x = 0; x < CHUNK_SIZE; x++) {
-                Block block = getBlock(x, y, z);
-                bool shouldRender = false;
-                
-                if (block.type != BlockType::AIR) {
-                    // Right face check for greedy meshing
-                    if (x < CHUNK_SIZE - 1) {
-                        shouldRender = getBlock(x + 1, y, z).type == BlockType::AIR;
-                    } else if (neighborXPos) {
-                        shouldRender = neighborXPos->getBlock(0, y, z).type == BlockType::AIR;
-                    } else {
-                        shouldRender = true; // Render if at chunk boundary with no neighbor
-                    }
-                    
-                    if (shouldRender) {
-                        faceMasks[RIGHT][y + z * CHUNK_SIZE] = true;
-                        faceTypes[RIGHT][y + z * CHUNK_SIZE] = block.type;
-                    }
-                    
-                    // Left face check for greedy meshing
-                    if (x > 0) {
-                        shouldRender = getBlock(x - 1, y, z).type == BlockType::AIR;
-                    } else if (neighborXNeg) {
-                        shouldRender = neighborXNeg->getBlock(CHUNK_SIZE - 1, y, z).type == BlockType::AIR;
-                    } else {
-                        shouldRender = true; // Render if at chunk boundary with no neighbor
-                    }
-                    
-                    if (shouldRender) {
-                        faceMasks[LEFT][y + z * CHUNK_SIZE] = true;
-                        faceTypes[LEFT][y + z * CHUNK_SIZE] = block.type;
-                    }
-                    
-                    // Back face check for greedy meshing
-                    if (z < CHUNK_SIZE - 1) {
-                        shouldRender = getBlock(x, y, z + 1).type == BlockType::AIR;
-                    } else if (neighborZPos) {
-                        shouldRender = neighborZPos->getBlock(x, y, 0).type == BlockType::AIR;
-                    } else {
-                        shouldRender = true; // Render if at chunk boundary with no neighbor
-                    }
-                    
-                    if (shouldRender) {
-                        faceMasks[BACK][x + y * CHUNK_SIZE] = true;
-                        faceTypes[BACK][x + y * CHUNK_SIZE] = block.type;
-                    }
-
-                    // Front face check for greedy meshing
-                    if (z > 0) {
-                        shouldRender = getBlock(x, y, z - 1).type == BlockType::AIR;
-                    } else if (neighborZNeg) {
-                        shouldRender = neighborZNeg->getBlock(x, y, CHUNK_SIZE - 1).type == BlockType::AIR;
-                    } else {
-                        shouldRender = true; // Render if at chunk boundary with no neighbor
-                    }
-                    
-                    if (shouldRender) {
-                        faceMasks[FRONT][x + y * CHUNK_SIZE] = true;
-                        faceTypes[FRONT][x + y * CHUNK_SIZE] = block.type;
-                    }
-
-                    // Bottom face check for greedy meshing
-                    if (y > 0) {
-                        shouldRender = getBlock(x, y - 1, z).type == BlockType::AIR;
-                    } else if (neighborYNeg) {
-                        shouldRender = neighborYNeg->getBlock(x, CHUNK_SIZE - 1, z).type == BlockType::AIR;
-                    } else {
-                        shouldRender = true; // Render if at chunk boundary with no neighbor
-                    }
-                    
-                    if (shouldRender) {
-                        faceMasks[BOTTOM][x + z * CHUNK_SIZE] = true;
-                        faceTypes[BOTTOM][x + z * CHUNK_SIZE] = block.type;
-                    }
-
-                    if (y < CHUNK_SIZE - 1) {
-                        shouldRender = getBlock(x, y + 1, z).type == BlockType::AIR;
-                    } else if (neighborYPos) {
-                        shouldRender = neighborYPos->getBlock(x, 0, z).type == BlockType::AIR;
-                    } else {
-                        shouldRender = true; // Render if at chunk boundary with no neighbor
-                    }
-                    
-                    if (shouldRender) {
-                        faceMasks[TOP][x + z * CHUNK_SIZE] = true;
-                        faceTypes[TOP][x + z * CHUNK_SIZE] = block.type;
-                    }
-                }
-            }
-        }
-    }
-    
-    // Greedy meshing algorithm for each direction
-    // Helper function to get mask value with bounds checking
-    auto getMask = [&](const std::array<bool, CHUNK_SIZE * CHUNK_SIZE>& mask, int x, int y) -> bool {
-        if (x >= 0 && x < CHUNK_SIZE && y >= 0 && y < CHUNK_SIZE) {
-            return mask[x + y * CHUNK_SIZE];
-        }
-        return false;
-    };
-    
-    auto getType = [&](const std::array<BlockType, CHUNK_SIZE * CHUNK_SIZE>& types, int x, int y) -> BlockType {
-        if (x >= 0 && x < CHUNK_SIZE && y >= 0 && y < CHUNK_SIZE) {
-            return types[x + y * CHUNK_SIZE];
-        }
-        return BlockType::AIR;
-    };
-    
-    // Process each direction
-    for (int dir = 0; dir < 6; dir++) {
-        // Create a visited mask to track which faces we've already processed
-        std::array<bool, CHUNK_SIZE * CHUNK_SIZE> visited{};
-        
-        for (int y = 0; y < CHUNK_SIZE; y++) {
-            for (int x = 0; x < CHUNK_SIZE; x++) {
-                if (!getMask(faceMasks[dir], x, y) || visited[x + y * CHUNK_SIZE]) {
-                    // Skip if no face to render or already processed
-                    continue;
-                }
-                
-                BlockType blockType = getType(faceTypes[dir], x, y);
-                
-                // Find the width of the rectangle (how far we can go in x direction)
-                int width = 1;
-                while (x + width < CHUNK_SIZE && 
-                       getMask(faceMasks[dir], x + width, y) && 
-                       !visited[x + width + y * CHUNK_SIZE] &&
-                       getType(faceTypes[dir], x + width, y) == blockType) {
-                    width++;
-                }
-                
-                // Find the height of the rectangle (how far we can go in y direction)
-                int height = 1;
-                bool canExtendHeight = true;
-                
-                while (canExtendHeight && y + height < CHUNK_SIZE) {
-                    // Check if we can extend the entire width
-                    for (int dx = 0; dx < width; dx++) {
-                        if (!getMask(faceMasks[dir], x + dx, y + height) || 
-                            visited[x + dx + (y + height) * CHUNK_SIZE] ||
-                            getType(faceTypes[dir], x + dx, y + height) != blockType) {
-                            canExtendHeight = false;
-                            break;
-                        }
-                    }
-                    
-                    if (canExtendHeight) {
-                        height++;
-                    }
-                }
-                
-                // Mark all cells in the rectangle as visited
-                for (int dy = 0; dy < height; dy++) {
-                    for (int dx = 0; dx < width; dx++) {
-                        visited[x + dx + (y + dy) * CHUNK_SIZE] = true;
-                    }
-                }
-                
-                // Now we have a rectangle from (x,y) with dimensions (width,height)
-                // We need to create a face for this rectangle
-                // The coordinates to use depend on which direction we're processing
-                
-                float bx, by, bz; // base coordinates
-                float w, h;       // width and height of the face
-                glm::vec3 normal;
-                Direction faceDir;
-                
-                switch (dir) {
-                    case 0: // TOP (Y+)
-                        // For TOP faces, the y coordinate is fixed, x and z vary
-                        // We need to find the y coordinate of the highest block in this column
-                        for (int dy = CHUNK_SIZE - 1; dy >= 0; dy--) {
-                            if (getBlock(x, dy, y).type == blockType) {
-                                bx = static_cast<float>(x);
-                                by = static_cast<float>(dy + 1); // TOP face is at y+1
-                                bz = static_cast<float>(y);
-                                w = static_cast<float>(width);
-                                h = static_cast<float>(height);
-                                normal = {0.0f, 1.0f, 0.0f};
-                                faceDir = Direction::TOP;
-                                addGreedyFace(bx, by, bz, w, h, blockType, faceDir, normal, true);
-                                break;
-                            }
-                        }
-                        break;
-                        
-                    case 1: // BOTTOM (Y-)
-                        // For BOTTOM faces, the y coordinate is fixed, x and z vary
-                        for (int dy = 0; dy < CHUNK_SIZE; dy++) {
-                            if (getBlock(x, dy, y).type == blockType) {
-                                bx = static_cast<float>(x);
-                                by = static_cast<float>(dy); // BOTTOM face is at y
-                                bz = static_cast<float>(y);
-                                w = static_cast<float>(width);
-                                h = static_cast<float>(height);
-                                normal = {0.0f, -1.0f, 0.0f};
-                                faceDir = Direction::BOTTOM;
-                                addGreedyFace(bx, by, bz, w, h, blockType, faceDir, normal, false);
-                                break;
-                            }
-                        }
-                        break;
-                        
-                    case 2: // FRONT (Z-)
-                        // For FRONT faces, the z coordinate is fixed (z=0), x and y vary
-                        // In our mask, 'x' is the x-coordinate and 'y' is the y-coordinate
-                        bx = static_cast<float>(x);
-                        by = static_cast<float>(y); 
-                        bz = static_cast<float>(0); // FRONT is at z=0
-                        w = static_cast<float>(width);
-                        h = static_cast<float>(height);
-                        normal = {0.0f, 0.0f, -1.0f};
-                        faceDir = Direction::FRONT;
-                        addGreedyFace(bx, by, bz, w, h, blockType, faceDir, normal, false);
-                        break;
-                        
-                    case 3: // BACK (Z+)
-                        // For BACK faces, the z coordinate is fixed (z=CHUNK_SIZE), x and y vary
-                        // In our mask, 'x' is the x-coordinate and 'y' is the y-coordinate
-                        bx = static_cast<float>(x);
-                        by = static_cast<float>(y);
-                        bz = static_cast<float>(CHUNK_SIZE); // BACK face is at z=CHUNK_SIZE
-                        w = static_cast<float>(width);
-                        h = static_cast<float>(height);
-                        normal = {0.0f, 0.0f, 1.0f};
-                        faceDir = Direction::BACK;
-                        addGreedyFace(bx, by, bz, w, h, blockType, faceDir, normal, true);
-                        break;
-                        
-                    case 4: // LEFT (X-)
-                        // For LEFT faces, the x coordinate is fixed (x=0), y and z vary
-                        // In our mask, 'x' is the y-coordinate and 'y' is the z-coordinate
-                        bx = static_cast<float>(0); // LEFT face is at x=0
-                        by = static_cast<float>(x); // 'x' in our loop is actually the y-coordinate
-                        bz = static_cast<float>(y); // 'y' in our loop is actually the z-coordinate
-                        w = static_cast<float>(width);
-                        h = static_cast<float>(height);
-                        normal = {-1.0f, 0.0f, 0.0f};
-                        faceDir = Direction::LEFT;
-                        addGreedyFace(bx, by, bz, w, h, blockType, faceDir, normal, false);
-                        break;
-                        
-                    case 5: // RIGHT (X+)
-                        // For RIGHT faces, the x coordinate is fixed (x=CHUNK_SIZE), y and z vary
-                        // In our mask, 'x' is the y-coordinate and 'y' is the z-coordinate
-                        bx = static_cast<float>(CHUNK_SIZE); // RIGHT face is at x=CHUNK_SIZE
-                        by = static_cast<float>(x); // 'x' in our loop is actually the y-coordinate
-                        bz = static_cast<float>(y); // 'y' in our loop is actually the z-coordinate
-                        w = static_cast<float>(width);
-                        h = static_cast<float>(height);
-                        normal = {1.0f, 0.0f, 0.0f};
-                        faceDir = Direction::RIGHT;
-                        addGreedyFace(bx, by, bz, w, h, blockType, faceDir, normal, true);
-                        break;
-                        break;
-                }
-            }
-        }
-    }
+    // Process each of the 6 face directions
+    processGreedyDirection(Direction::TOP, neighborYPos);
+    processGreedyDirection(Direction::BOTTOM, neighborYNeg);
+    processGreedyDirection(Direction::FRONT, neighborZNeg);
+    processGreedyDirection(Direction::BACK, neighborZPos);
+    processGreedyDirection(Direction::LEFT, neighborXNeg);
+    processGreedyDirection(Direction::RIGHT, neighborXPos);
     
     m_meshGenerated = true;
     m_upToDate = false;
 }
 
-// Helper function for greedy meshing to add a merged face
-void Chunk::addGreedyFace(float x, float y, float z, float width, float height, 
-                          BlockType blockType, Direction direction, 
-                          const glm::vec3& normal, bool flipWinding) {
+// Helper method to process greedy meshing for a specific direction
+void Chunk::processGreedyDirection(Direction direction, std::shared_ptr<Chunk> neighbor) {
+    // Arrays to store visibility and block type information
+    // Each entry will store -1 for empty/hidden faces, or a value >=0 representing the block type
+    std::vector<int> visibilityMask(CHUNK_SIZE * CHUNK_SIZE, -1);
+    
+    // Define axis indices based on direction
+    int normalAxis; // The axis perpendicular to the face (0=X, 1=Y, 2=Z)
+    int uAxis, vAxis; // The axes parallel to the face
+    int normalDirection; // 1 for positive direction, -1 for negative
+    
+    switch (direction) {
+        case Direction::RIGHT: // Positive X
+            normalAxis = 0; uAxis = 1; vAxis = 2; normalDirection = 1;
+            break;
+        case Direction::LEFT: // Negative X
+            normalAxis = 0; uAxis = 1; vAxis = 2; normalDirection = -1;
+            break;
+        case Direction::TOP: // Positive Y
+            normalAxis = 1; uAxis = 0; vAxis = 2; normalDirection = 1; 
+            break;
+        case Direction::BOTTOM: // Negative Y
+            normalAxis = 1; uAxis = 0; vAxis = 2; normalDirection = -1;
+            break;
+        case Direction::BACK: // Positive Z
+            normalAxis = 2; uAxis = 0; vAxis = 1; normalDirection = 1;
+            break;
+        case Direction::FRONT: // Negative Z
+            normalAxis = 2; uAxis = 0; vAxis = 1; normalDirection = -1;
+            break;
+    }
+    
+    // Process each slice along the normal axis
+    for (int n = 0; n < CHUNK_SIZE; n++) {
+        // Clear mask for the current slice
+        std::fill(visibilityMask.begin(), visibilityMask.end(), -1);
+        
+        // Build the visibility mask for this slice
+        for (int v = 0; v < CHUNK_SIZE; v++) {
+            for (int u = 0; u < CHUNK_SIZE; u++) {
+                // Convert u,v,n coordinates to x,y,z based on the face direction
+                int x = (normalAxis == 0) ? n : ((uAxis == 0) ? u : v);
+                int y = (normalAxis == 1) ? n : ((uAxis == 1) ? u : v);
+                int z = (normalAxis == 2) ? n : ((uAxis == 2) ? u : v);
+                
+                // Check if this face needs to be rendered
+                Block block = getBlock(x, y, z);
+                
+                if (block.type != BlockType::AIR) {
+                    // Calculate the coordinates of the adjacent block
+                    int nx = x + (normalAxis == 0 ? normalDirection : 0);
+                    int ny = y + (normalAxis == 1 ? normalDirection : 0);
+                    int nz = z + (normalAxis == 2 ? normalDirection : 0);
+                    
+                    // Check if the adjacent block is air (or out of bounds)
+                    bool faceVisible = false;
+                    
+                    if (isInBounds(nx, ny, nz)) {
+                        // Adjacent block is within this chunk
+                        faceVisible = (getBlock(nx, ny, nz).type == BlockType::AIR);
+                    } else {
+                        // Adjacent block is in a neighboring chunk
+                        if (neighbor) {
+                            // Convert to neighbor's coordinates
+                            int neighborX = (nx < 0) ? CHUNK_SIZE - 1 : ((nx >= CHUNK_SIZE) ? 0 : nx);
+                            int neighborY = (ny < 0) ? CHUNK_SIZE - 1 : ((ny >= CHUNK_SIZE) ? 0 : ny);
+                            int neighborZ = (nz < 0) ? CHUNK_SIZE - 1 : ((nz >= CHUNK_SIZE) ? 0 : nz);
+                            
+                            faceVisible = (neighbor->getBlock(neighborX, neighborY, neighborZ).type == BlockType::AIR);
+                        } else {
+                            // No neighbor chunk, so face is visible
+                            faceVisible = true;
+                        }
+                    }
+                    
+                    if (faceVisible) {
+                        // Store the block type in the mask (convert enum to integer)
+                        visibilityMask[u + v * CHUNK_SIZE] = static_cast<int>(block.type);
+                    }
+                }
+            }
+        }
+        
+        // Apply greedy meshing to this slice
+        // This loop continues until all visible faces in this slice have been processed
+        for (int v = 0; v < CHUNK_SIZE; v++) {
+            for (int u = 0; u < CHUNK_SIZE; u++) {
+                int blockTypeValue = visibilityMask[u + v * CHUNK_SIZE];
+                
+                // Skip if this face is hidden or already processed
+                if (blockTypeValue == -1) continue;
+                
+                // Convert back to block type
+                BlockType blockType = static_cast<BlockType>(blockTypeValue);
+                
+                // Find the width of this quad (how far it extends in the u direction)
+                int width = 1;
+                while (u + width < CHUNK_SIZE && visibilityMask[u + width + v * CHUNK_SIZE] == blockTypeValue) {
+                    width++;
+                }
+                
+                // Find the height of this quad (how far it extends in the v direction)
+                int height = 1;
+                bool canExtendHeight = true;
+                
+                while (canExtendHeight && v + height < CHUNK_SIZE) {
+                    // Check if we can extend by one row
+                    for (int du = 0; du < width; du++) {
+                        if (visibilityMask[(u + du) + (v + height) * CHUNK_SIZE] != blockTypeValue) {
+                            canExtendHeight = false;
+                            break;
+                        }
+                    }
+                    
+                    if (canExtendHeight) height++;
+                }
+                
+                // Mark these faces as processed
+                for (int dv = 0; dv < height; dv++) {
+                    for (int du = 0; du < width; du++) {
+                        visibilityMask[(u + du) + (v + dv) * CHUNK_SIZE] = -1;
+                    }
+                }
+                
+                // Add the quad to the mesh
+                addGreedyFace(n, u, v, width, height, blockType, direction, normalAxis, uAxis, vAxis);
+            }
+        }
+    }
+}
+
+// Helper method to add a greedy face to the mesh
+void Chunk::addGreedyFace(int normal, int u, int v, int width, int height, BlockType blockType, Direction direction, 
+                           int normalAxis, int uAxis, int vAxis) {
     uint32_t vertexOffset = static_cast<uint32_t>(m_vertices.size());
     
-    // Determine the color based on block type
+    // Determine color based on block type (same as in addBlockFace)
     glm::vec3 color;
     switch (blockType) {
         case BlockType::GRASS:
@@ -487,91 +318,88 @@ void Chunk::addGreedyFace(float x, float y, float z, float width, float height,
             color = {1.0f, 1.0f, 1.0f};
     }
     
-    std::vector<Model::Vertex> faceVertices;
+    // Compute normal vector
+    glm::vec3 normalVector(0.0f);
+    if (normalAxis == 0) normalVector.x = (direction == Direction::RIGHT) ? 1.0f : -1.0f;
+    else if (normalAxis == 1) normalVector.y = (direction == Direction::TOP) ? 1.0f : -1.0f;
+    else if (normalAxis == 2) normalVector.z = (direction == Direction::BACK) ? 1.0f : -1.0f;
     
-    // Create vertices based on direction
+    // Calculate the coordinates for the four corners of the face
+    std::array<glm::vec3, 4> positions;
+    std::array<glm::vec2, 4> uvs = {
+        glm::vec2(0.0f, 0.0f),
+        glm::vec2(static_cast<float>(width), 0.0f),
+        glm::vec2(static_cast<float>(width), static_cast<float>(height)),
+        glm::vec2(0.0f, static_cast<float>(height))
+    };
+    
+    glm::vec3 pos;
+    
+    // Set position for base corner
+    pos[normalAxis] = static_cast<float>(normal);
+    if (direction == Direction::RIGHT || direction == Direction::TOP || direction == Direction::BACK) {
+        pos[normalAxis] += 1.0f;
+    }
+    pos[uAxis] = static_cast<float>(u);
+    pos[vAxis] = static_cast<float>(v);
+    positions[0] = pos;
+    
+    // Set position for second corner (u+width, v)
+    pos[uAxis] = static_cast<float>(u + width);
+    positions[1] = pos;
+    
+    // Set position for third corner (u+width, v+height)
+    pos[vAxis] = static_cast<float>(v + height);
+    positions[2] = pos;
+    
+    // Set position for fourth corner (u, v+height)
+    pos[uAxis] = static_cast<float>(u);
+    positions[3] = pos;
+
+    // Create vertices for the quad
+    std::vector<Model::Vertex> faceVertices(4);
+    
+    // Different face directions require different vertex orders to ensure proper winding
+    const int indices[6] = {0, 1, 2, 0, 2, 3};
+    int vertexOrder[4];
+    
     switch (direction) {
         case Direction::TOP:
-            // TOP face is in the XZ plane at fixed Y
-            faceVertices = {
-                {{x, y, z}, color, normal, {0.0f, 0.0f}},
-                {{x + width, y, z}, color, normal, {width, 0.0f}},
-                {{x + width, y, z + height}, color, normal, {width, height}},
-                {{x, y, z + height}, color, normal, {0.0f, height}}
-            };
+            vertexOrder[0] = 0; vertexOrder[1] = 1; vertexOrder[2] = 2; vertexOrder[3] = 3;
             break;
-            
         case Direction::BOTTOM:
-            // BOTTOM face is in the XZ plane at fixed Y
-            faceVertices = {
-                {{x, y, z}, color, normal, {0.0f, 0.0f}},
-                {{x + width, y, z}, color, normal, {width, 0.0f}},
-                {{x + width, y, z + height}, color, normal, {width, height}},
-                {{x, y, z + height}, color, normal, {0.0f, height}}
-            };
+            vertexOrder[0] = 3; vertexOrder[1] = 2; vertexOrder[2] = 1; vertexOrder[3] = 0;
             break;
-            
         case Direction::FRONT:
-            // FRONT face is in the XY plane at fixed Z
-            faceVertices = {
-                {{x, y, z}, color, normal, {0.0f, 0.0f}},
-                {{x + width, y, z}, color, normal, {width, 0.0f}},
-                {{x + width, y + height, z}, color, normal, {width, height}},
-                {{x, y + height, z}, color, normal, {0.0f, height}}
-            };
+            vertexOrder[0] = 0; vertexOrder[1] = 1; vertexOrder[2] = 2; vertexOrder[3] = 3;
             break;
-            
         case Direction::BACK:
-            // BACK face is in the XY plane at fixed Z
-            faceVertices = {
-                {{x, y, z}, color, normal, {0.0f, 0.0f}},
-                {{x + width, y, z}, color, normal, {width, 0.0f}},
-                {{x + width, y + height, z}, color, normal, {width, height}},
-                {{x, y + height, z}, color, normal, {0.0f, height}}
-            };
+            vertexOrder[0] = 3; vertexOrder[1] = 2; vertexOrder[2] = 1; vertexOrder[3] = 0;
             break;
-            
         case Direction::LEFT:
-            // LEFT face is in the YZ plane at fixed X
-            faceVertices = {
-                {{x, y, z}, color, normal, {0.0f, 0.0f}},
-                {{x, y, z + width}, color, normal, {width, 0.0f}},
-                {{x, y + height, z + width}, color, normal, {width, height}},
-                {{x, y + height, z}, color, normal, {0.0f, height}}
-            };
+            vertexOrder[0] = 0; vertexOrder[1] = 1; vertexOrder[2] = 2; vertexOrder[3] = 3;
             break;
-            
         case Direction::RIGHT:
-            // RIGHT face is in the YZ plane at fixed X
-            faceVertices = {
-                {{x, y, z}, color, normal, {0.0f, 0.0f}},
-                {{x, y, z + width}, color, normal, {width, 0.0f}},
-                {{x, y + height, z + width}, color, normal, {width, height}},
-                {{x, y + height, z}, color, normal, {0.0f, height}}
-            };
+            vertexOrder[0] = 3; vertexOrder[1] = 2; vertexOrder[2] = 1; vertexOrder[3] = 0;
             break;
+    }
+    
+    for (int i = 0; i < 4; i++) {
+        faceVertices[i].position = positions[vertexOrder[i]];
+        faceVertices[i].color = color;
+        faceVertices[i].normal = normalVector;
+        faceVertices[i].uv = uvs[vertexOrder[i]];
     }
     
     m_vertices.insert(m_vertices.end(), faceVertices.begin(), faceVertices.end());
     
-    // Create indices for the face
-    if (flipWinding) {
-        // Counter-clockwise winding
-        m_indices.push_back(vertexOffset);
-        m_indices.push_back(vertexOffset + 1);
-        m_indices.push_back(vertexOffset + 2);
-        m_indices.push_back(vertexOffset);
-        m_indices.push_back(vertexOffset + 2);
-        m_indices.push_back(vertexOffset + 3);
-    } else {
-        // Clockwise winding
-        m_indices.push_back(vertexOffset);
-        m_indices.push_back(vertexOffset + 3);
-        m_indices.push_back(vertexOffset + 2);
-        m_indices.push_back(vertexOffset);
-        m_indices.push_back(vertexOffset + 2);
-        m_indices.push_back(vertexOffset + 1);
-    }
+    // Add indices for the two triangles that make up the quad
+    m_indices.push_back(vertexOffset);
+    m_indices.push_back(vertexOffset + 1);
+    m_indices.push_back(vertexOffset + 2);
+    m_indices.push_back(vertexOffset);
+    m_indices.push_back(vertexOffset + 2);
+    m_indices.push_back(vertexOffset + 3);
 }
 
 void Chunk::generateTerrain() {

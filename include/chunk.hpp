@@ -28,6 +28,35 @@ enum class BlockType {
 constexpr int CHUNK_SIZE = 16;
 constexpr int CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
+#include <cstdint>
+#include <cstddef>
+
+// ——— Bit-interleaving to make a 3D Morton code ———
+static inline uint64_t expandBits(uint32_t v) {
+    uint64_t x = v;
+    x = (x | (x << 16)) & 0x0000FFFF0000FFFFULL;
+    x = (x | (x <<  8)) & 0x00FF00FF00FF00FFULL;
+    x = (x | (x <<  4)) & 0x0F0F0F0F0F0F0F0FULL;
+    x = (x | (x <<  2)) & 0x3333333333333333ULL;
+    x = (x | (x <<  1)) & 0x5555555555555555ULL;
+    return x;
+}
+
+static inline uint64_t morton3D(uint32_t x, uint32_t y, uint32_t z) {
+    // interleave bits: …z2y2x2 z1y1x1 z0y0x0
+    return (expandBits(x) << 2)
+         | (expandBits(y) << 1)
+         |  expandBits(z);
+}
+
+// ——— SplitMix64 mixer for avalanche diffusion ———
+static inline uint64_t splitmix64(uint64_t x) {
+    x += 0x9e3779b97f4a7c15ULL;
+    x  = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    x  = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+    return x ^ (x >> 31);
+}
+
 struct ChunkCoord {
     int x;
     int y;
@@ -40,9 +69,12 @@ struct ChunkCoord {
     // Hash function for ChunkCoord to use in unordered_map
     struct Hash {
         std::size_t operator()(const ChunkCoord& coord) const {
-            return std::hash<int>()(coord.x) ^ 
-                   (std::hash<int>()(coord.y) << 1) ^
-                   (std::hash<int>()(coord.z) << 2);
+            uint64_t key = morton3D(
+                static_cast<uint32_t>(coord.x),
+                static_cast<uint32_t>(coord.y),
+                static_cast<uint32_t>(coord.z)
+            );
+            return static_cast<std::size_t>(splitmix64(key));
         }
     };
 };
@@ -102,7 +134,7 @@ public:
     void generateMesh();
     
     // Generate optimized mesh using greedy meshing algorithm
-    void generateGreedyMesh(const std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoord::Hash> &chunks);
+    void generateGreedyMesh();
     
     // Update the chunk's game object
     void updateGameObject();
@@ -171,10 +203,10 @@ private:
     // Helper function to add a face to the mesh
     void addBlockFace(int x, int y, int z, BlockType blockType, Direction direction);
     
-    // Helper function for greedy meshing to add a merged face
-    void addGreedyFace(float x, float y, float z, float width, float height, 
-                       BlockType blockType, Direction direction, 
-                       const glm::vec3& normal, bool flipWinding);
+    // Helper methods for greedy meshing
+    void processGreedyDirection(Direction direction, std::shared_ptr<Chunk> neighbor);
+    void addGreedyFace(int normal, int u, int v, int width, int height, BlockType blockType, Direction direction, 
+                       int normalAxis, int uAxis, int vAxis);
     
     // Device reference for creating models
     Device &device;

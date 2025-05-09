@@ -37,6 +37,9 @@ private:
     float lastUpdateTime = 0.0f;
     const float updateInterval = 0.5f; // Update twice per second
 
+
+    float startTime = -1.0f;
+
     void updateMeshStats(FrameInfo &frameInfo);
     
     VkDescriptorPool descriptorPool;
