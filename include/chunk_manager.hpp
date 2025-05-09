@@ -49,9 +49,9 @@ private:
 
     std::shared_mutex chunksMutex;
 
-    int numCreationThreads = 4;
-    int numTerrainThreads = 4;
-    int numMeshThreads = 4;
+    int numCreationThreads = 8;
+    int numTerrainThreads = 8;
+    int numMeshThreads = 8;
 
     void chunksTerrainGenerationThread();
     void chunksMeshUpdateThread();
