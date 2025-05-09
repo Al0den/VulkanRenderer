@@ -113,6 +113,12 @@ private:
     std::unordered_map<std::string, ConfigValue> values;
 };
 
+enum class RenderMode {
+    NORMAL_TEXTURED,
+    WIREFRAME,
+    // Add other modes like WIREFRAME here later
+};
+
 // Global function to access the singleton instance
 inline Config& config() {
     return Config::getInstance();

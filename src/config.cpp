@@ -146,6 +146,7 @@ void Config::initDefaults() {
     setInt("meshing_technique", 0); // 0: Simple, 1: Greedy
     setFloat("player_speed", 30.0f);
     setFloat("fov", 60.0f);
+    setInt("render_mode", static_cast<int>(RenderMode::NORMAL_TEXTURED));
 }
 
 std::vector<std::string> Config::getAllKeys() const {
@@ -166,5 +167,4 @@ Config::ValueType Config::getType(const std::string& key) const {
     }
     throw std::runtime_error("Config key not found: " + key);
 }
-
 } // namespace vkengine

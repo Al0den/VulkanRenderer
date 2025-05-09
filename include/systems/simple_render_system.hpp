@@ -23,11 +23,12 @@ class SimpleRenderSystem {
         void renderGameObjects(FrameInfo &frameInfo);
     private:
         void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
-        void createPipeline(VkRenderPass renderPass);
+        void createPipelines(VkRenderPass renderPass);
 
         Device &device;
 
-        std::unique_ptr<Pipeline> pipeline;
+        std::unique_ptr<Pipeline> texturedPipeline;
+        std::unique_ptr<Pipeline> wireframePipeline;
         VkPipelineLayout pipelineLayout;
 };
 
