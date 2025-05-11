@@ -75,28 +75,10 @@ void App::run() {
 
     auto currentTime = std::chrono::high_resolution_clock::now();
 
-    // Debounce for render mode toggle
-    bool rKeyPressedLastFrame = false;
-
-    
-
     while (!window.shouldClose()) {
         ScopeTimer globalTimer("global");
         
         glfwPollEvents();
-
-        // Render Mode Toggle Logic
-        bool rKeyPressedThisFrame = glfwGetKey(window.getWindow(), GLFW_KEY_R) == GLFW_PRESS;
-        if (rKeyPressedThisFrame && !rKeyPressedLastFrame) {
-            if (static_cast<RenderMode>(config().getInt("render_mode")) == RenderMode::UV) {
-                config().setInt("render_mode", static_cast<int>(RenderMode::WIREFRAME));
-            } else if (static_cast<RenderMode>(config().getInt("render_mode")) == RenderMode::WIREFRAME) {
-                config().setInt("render_mode", static_cast<int>(RenderMode::TEXTURE)); 
-            } else {
-                config().setInt("render_mode", static_cast<int>(RenderMode::UV));
-            }
-        }
-        rKeyPressedLastFrame = rKeyPressedThisFrame;
 
         auto newTime = std::chrono::high_resolution_clock::now();
         float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();

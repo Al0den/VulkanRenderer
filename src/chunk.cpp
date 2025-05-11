@@ -389,6 +389,7 @@ void Chunk::addGreedyFace(int normal, int u, int v, int width, int height, Block
         faceVertices[i].color = color;
         faceVertices[i].normal = normalVector;
         faceVertices[i].uv = uvs[vertexOrder[i]];
+        faceVertices[i].block_type = static_cast<uint32_t>(blockType);
     }
     
     m_vertices.insert(m_vertices.end(), faceVertices.begin(), faceVertices.end());
@@ -455,16 +456,19 @@ void Chunk::generateTerrain() {
                 
                 // Surface grass
                 setBlock(x, CHUNK_SIZE - 1 - height, z, BlockType::GRASS);
-                
-                // Replace the layer above grass with high grass (HGRASS) instead of dirt
-                for (int y = CHUNK_SIZE - 1 - height + 1; y < CHUNK_SIZE - 1 - height + 4; y++) {
+                int surfaceY = CHUNK_SIZE - 1 - height;
+                // High grass immediately above surface grass
+                if (surfaceY + 1 < CHUNK_SIZE) {
+                    setBlock(x, surfaceY + 1, z, BlockType::GRASS);
+                }
+                // Dirt layers above high grass
+                for (int y = surfaceY + 2; y < surfaceY + 4; y++) {
                     if (y < CHUNK_SIZE) {
-                        setBlock(x, y, z, BlockType::HGRASS);
+                        setBlock(x, y, z, BlockType::GRASS);
                     }
                 }
-
                 // Stone below dirt layers
-                for (int y = CHUNK_SIZE - 1 - height + 4; y < CHUNK_SIZE; y++) {
+                for (int y = surfaceY + 4; y < CHUNK_SIZE; y++) {
                     if (y < CHUNK_SIZE) {
                         setBlock(x, y, z, BlockType::STONE);
                     }
@@ -592,55 +596,55 @@ void Chunk::addBlockFace(int x, int y, int z, BlockType blockType, Direction dir
     switch (direction) {
         case Direction::TOP: {
             faceVertices = {
-                {{bx, by + 1.0f, bz + 1.0f}, color, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
-                {{bx + 1.0f, by + 1.0f, bz + 1.0f}, color, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
-                {{bx + 1.0f, by + 1.0f, bz}, color, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-                {{bx, by + 1.0f, bz}, color, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}}
+                {{bx, by + 1.0f, bz + 1.0f}, color, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by + 1.0f, bz + 1.0f}, color, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by + 1.0f, bz}, color, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, static_cast<uint32_t>(blockType)},
+                {{bx, by + 1.0f, bz}, color, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, static_cast<uint32_t>(blockType)}
             };
             break;
         }
         case Direction::BOTTOM: {
             faceVertices = {
-                {{bx, by, bz}, color, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
-                {{bx + 1.0f, by, bz}, color, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
-                {{bx + 1.0f, by, bz + 1.0f}, color, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
-                {{bx, by, bz + 1.0f}, color, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}}
+                {{bx, by, bz}, color, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by, bz}, color, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by, bz + 1.0f}, color, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}, static_cast<uint32_t>(blockType)},
+                {{bx, by, bz + 1.0f}, color, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}, static_cast<uint32_t>(blockType)}
             };
             break;
         }
         case Direction::FRONT: {
             faceVertices = {
-                {{bx, by + 1.0f, bz}, color, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}},
-                {{bx + 1.0f, by + 1.0f, bz}, color, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}},
-                {{bx + 1.0f, by, bz}, color, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}},
-                {{bx, by, bz}, color, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}}
+                {{bx, by + 1.0f, bz}, color, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by + 1.0f, bz}, color, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by, bz}, color, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}, static_cast<uint32_t>(blockType)},
+                {{bx, by, bz}, color, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}, static_cast<uint32_t>(blockType)}
             };
             break;
         }
         case Direction::BACK: {
             faceVertices = {
-                {{bx, by + 1.0f, bz + 1.0f}, color, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-                {{bx + 1.0f, by + 1.0f, bz + 1.0f}, color, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-                {{bx + 1.0f, by, bz + 1.0f}, color, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-                {{bx, by, bz + 1.0f}, color, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}}
+                {{bx, by + 1.0f, bz + 1.0f}, color, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by + 1.0f, bz + 1.0f}, color, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by, bz + 1.0f}, color, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, static_cast<uint32_t>(blockType)},
+                {{bx, by, bz + 1.0f}, color, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, static_cast<uint32_t>(blockType)}
             };
             break;
         }
         case Direction::LEFT: {
             faceVertices = {
-                {{bx, by + 1.0f, bz + 1.0f}, color, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-                {{bx, by + 1.0f, bz}, color, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
-                {{bx, by, bz}, color, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-                {{bx, by, bz + 1.0f}, color, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}
+                {{bx, by + 1.0f, bz + 1.0f}, color, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx, by + 1.0f, bz}, color, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx, by, bz}, color, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, static_cast<uint32_t>(blockType)},
+                {{bx, by, bz + 1.0f}, color, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, static_cast<uint32_t>(blockType)}
             };
             break;
         }
         case Direction::RIGHT: {
             faceVertices = {
-                {{bx + 1.0f, by + 1.0f, bz}, color, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-                {{bx + 1.0f, by + 1.0f, bz + 1.0f}, color, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
-                {{bx + 1.0f, by, bz + 1.0f}, color, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-                {{bx + 1.0f, by, bz}, color, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}
+                {{bx + 1.0f, by + 1.0f, bz}, color, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by + 1.0f, bz + 1.0f}, color, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by, bz + 1.0f}, color, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, static_cast<uint32_t>(blockType)},
+                {{bx + 1.0f, by, bz}, color, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, static_cast<uint32_t>(blockType)}
             };
             break;
         }

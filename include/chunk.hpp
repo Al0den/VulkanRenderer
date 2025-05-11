@@ -16,7 +16,6 @@ enum class BlockType {
     AIR,
     DIRT,
     GRASS,
-    HGRASS, // new high grass block type
     STONE,
     SAND,
     WATER,

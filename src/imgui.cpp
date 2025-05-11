@@ -269,6 +269,8 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
         
         // Meshing technique selection
         static const char* meshingTechniques[] = { "Regular Meshing", "Greedy Meshing" };
+        static const char* renderMethods[] = { "UV", "Wireframe", "Texture"};
+        static int currentRenderMethod = config().getInt("render_mode");
         static int currentMeshingTechnique = config().getInt("meshing_technique");
         
         ImGui::Text("Meshing Technique");
@@ -276,6 +278,10 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
             config().setInt("meshing_technique", currentMeshingTechnique);
             ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Meshing technique changed. New chunks will use the selected method.");
             frameInfo.chunkManager->regenerateEntireMesh();
+        }
+        ImGui::Text("Render Method");
+        if (ImGui::Combo("##RenderTechnique", &currentRenderMethod, renderMethods, IM_ARRAYSIZE(renderMethods))) {
+            config().setInt("render_mode", currentRenderMethod);
         }
         
         ImGui::Text("Statistics");

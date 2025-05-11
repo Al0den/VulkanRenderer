@@ -6,11 +6,11 @@ namespace vkengine {
 // Define your texture configurations here.
 // This is where you map each BlockId to its texture file path.
 static const std::vector<TextureConfigEntry> globalTextureConfig = {
-    {BlockType::AIR,        "textures/dirt.png"},        // Placeholder for air, can be empty or transparent
+    {BlockType::AIR,        "textures/grass.png"},
     {BlockType::DIRT,       "textures/dirt.png"},
-    {BlockType::GRASS,      "textures/grass.png"},       // General grass texture, or side if top/bottom are different
+    {BlockType::GRASS,      "textures/grass.png"},    
     {BlockType::STONE,      "textures/stone.png"},
-    {BlockType::WATER,      "textures/water.png"},   // Example, pick one or decide how to handle animated/variant textures
+    {BlockType::WATER,      "textures/water.png"}, 
 };
 
 const std::vector<TextureConfigEntry>& getGlobalTextureConfig() {
