@@ -20,6 +20,7 @@ class Model {
             glm::vec3 color{};
             glm::vec3 normal{};
             glm::vec2 uv{};
+            uint32_t block_type;
 
 
             static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();
