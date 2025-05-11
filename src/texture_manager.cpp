@@ -1,6 +1,5 @@
 #include "texture_manager.hpp"
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h" // For loading images
 
 #include <stdexcept>
@@ -12,27 +11,23 @@ namespace vkengine {
 
 // Constructor
 TextureManager::TextureManager(Device& device)
-    : device{device}, sampler{VK_NULL_HANDLE} {}
+    : device{device}, textureArrayImage{VK_NULL_HANDLE}, textureArrayImageMemory{VK_NULL_HANDLE}, textureArrayImageView{VK_NULL_HANDLE}, sampler{VK_NULL_HANDLE}, numLayers{0} {}
 
 // Destructor
 TextureManager::~TextureManager() {
     if (sampler != VK_NULL_HANDLE) {
         vkDestroySampler(device.device(), sampler, nullptr);
     }
-    for (VkImageView imageView : textureImageViews) {
-        if (imageView != VK_NULL_HANDLE) {
-            vkDestroyImageView(device.device(), imageView, nullptr);
-        }
+    // Clean up the single texture array image view
+    if (textureArrayImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(device.device(), textureArrayImageView, nullptr);
     }
-    for (VkImage image : textureImages) {
-        if (image != VK_NULL_HANDLE) {
-            vkDestroyImage(device.device(), image, nullptr);
-        }
+    // Clean up the single texture array image and its memory
+    if (textureArrayImage != VK_NULL_HANDLE) {
+        vkDestroyImage(device.device(), textureArrayImage, nullptr);
     }
-    for (VkDeviceMemory memory : textureImageMemories) {
-        if (memory != VK_NULL_HANDLE) {
-            vkFreeMemory(device.device(), memory, nullptr);
-        }
+    if (textureArrayImageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device.device(), textureArrayImageMemory, nullptr);
     }
 }
 
@@ -107,19 +102,16 @@ void TextureManager::loadTextures() {
 
     if (textureConfigs.empty()) {
         std::cout << "No textures configured. No textures will be loaded." << std::endl;
-        // Optionally, create a default/dummy texture if your application requires at least one texture.
+        numLayers = 0;
+        // Optionally, create a default/dummy texture array if your application requires it.
         return;
     }
 
-    textureImages.resize(textureConfigs.size());
-    textureImageMemories.resize(textureConfigs.size());
-    textureImageViews.resize(textureConfigs.size());
+    numLayers = textureConfigs.size();
+    std::vector<RawImage> loadedRawImages;
+    loadedRawImages.reserve(numLayers);
 
-    std::vector<RawImage> loadedRawImages; // Temporary storage for pixel data
-    loadedRawImages.reserve(textureConfigs.size());
-
-    for (size_t i = 0; i < textureConfigs.size(); ++i) {
-        const auto& config = textureConfigs[i];
+    for (const auto& config : textureConfigs) {
         int texWidthStb, texHeightStb, texChannelsStb;
         unsigned char* pixels = stbi_load(config.path.c_str(), &texWidthStb, &texHeightStb, &texChannelsStb, STBI_rgb_alpha);
         if (!pixels) {
@@ -139,61 +131,91 @@ void TextureManager::loadTextures() {
     }
 
     VkDeviceSize imageSize = static_cast<VkDeviceSize>(TEXTURE_WIDTH) * TEXTURE_HEIGHT * 4; // 4 for RGBA
+    VkDeviceSize totalSize = imageSize * numLayers;
 
-    for (size_t i = 0; i < loadedRawImages.size(); ++i) {
-        Buffer stagingBuffer{
-            device,
-            imageSize,
-            1,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
-        
-        stagingBuffer.map();
-        stagingBuffer.writeToBuffer(loadedRawImages[i].pixels, imageSize);
-        stagingBuffer.unmap();
-
-        stbi_image_free(loadedRawImages[i].pixels); // Free CPU-side pixel data after staging
-
-        createImage(TEXTURE_WIDTH, TEXTURE_HEIGHT, VK_FORMAT_R8G8B8A8_SRGB,
-                    VK_IMAGE_TILING_OPTIMAL,
-                    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                    textureImages[i], textureImageMemories[i]);
-
-        VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
-
-        VkImageMemoryBarrier barrier{};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = textureImages[i];
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-        device.copyBufferToImage(stagingBuffer.getBuffer(), textureImages[i], TEXTURE_WIDTH, TEXTURE_HEIGHT, 1);
-
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-        
-        device.endSingleTimeCommands(commandBuffer);
-
-        createImageView(textureImages[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, textureImageViews[i]);
-    }
+    Buffer stagingBuffer{
+        device,
+        totalSize,
+        1, // instance count, for buffer not individual images
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
     
-    loadedRawImages.clear(); // Clear the temporary storage
+    stagingBuffer.map();
+    unsigned char* mappedData = static_cast<unsigned char*>(stagingBuffer.getMappedMemory());
 
-    createTextureSampler(); // Create a single sampler for all textures
+    for (size_t i = 0; i < numLayers; ++i) {
+        memcpy(mappedData + (i * imageSize), loadedRawImages[i].pixels, imageSize);
+        stbi_image_free(loadedRawImages[i].pixels); // Free CPU-side pixel data
+    }
+    stagingBuffer.unmap(); // Unmap after all images are copied
+
+    loadedRawImages.clear();
+
+    // Create a single VkImage for the texture array
+    createImage(TEXTURE_WIDTH, TEXTURE_HEIGHT, VK_FORMAT_R8G8B8A8_SRGB,
+                VK_IMAGE_TILING_OPTIMAL,
+                VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                textureArrayImage, textureArrayImageMemory, numLayers); // Pass numLayers here
+
+    VkCommandBuffer commandBuffer = device.beginSingleTimeCommands();
+
+    // Transition layout for the entire array
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = textureArrayImage;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = numLayers; // Apply to all layers
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    // Copy buffer to image, one layer at a time or in a batch if API supports
+    // For simplicity, using VkBufferImageCopy for each layer.
+    // More optimal: use a single vkCmdCopyBufferToImage with multiple regions if possible,
+    // or ensure your copyBufferToImage can handle array layers directly.
+    // Assuming device.copyBufferToImage is adapted or you use vkCmdCopyBufferToImage with VkBufferImageCopy regions.
+
+    std::vector<VkBufferImageCopy> bufferCopyRegions;
+    for (uint32_t i = 0; i < numLayers; ++i) {
+        VkBufferImageCopy region{};
+        region.bufferOffset = imageSize * i;
+        region.bufferRowLength = 0; // Tightly packed
+        region.bufferImageHeight = 0; // Tightly packed
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = i;
+        region.imageSubresource.layerCount = 1;
+        region.imageOffset = {0, 0, 0};
+        region.imageExtent = {TEXTURE_WIDTH, TEXTURE_HEIGHT, 1};
+        bufferCopyRegions.push_back(region);
+    }
+    vkCmdCopyBufferToImage(commandBuffer, stagingBuffer.getBuffer(), textureArrayImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(bufferCopyRegions.size()), bufferCopyRegions.data());
+
+
+    // Transition layout for shader access for the entire array
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    // barrier.subresourceRange.layerCount is already numLayers
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    device.endSingleTimeCommands(commandBuffer);
+
+    // Create a single image view for the texture array
+    createImageView(textureArrayImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, textureArrayImageView, VK_IMAGE_VIEW_TYPE_2D_ARRAY, numLayers);
+    
+    createTextureSampler(); // Sampler can be shared
+
+    std::cout << "Loaded " << numLayers << " textures into a texture array." << std::endl;
 }
 
 } // namespace vkengine

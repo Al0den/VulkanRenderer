@@ -453,14 +453,17 @@ void Chunk::generateTerrain() {
             for (int z = 0; z < CHUNK_SIZE; z++) {
                 int height = heightMap[x + z * CHUNK_SIZE];
                 
+                // Surface grass
                 setBlock(x, CHUNK_SIZE - 1 - height, z, BlockType::GRASS);
                 
+                // Replace the layer above grass with high grass (HGRASS) instead of dirt
                 for (int y = CHUNK_SIZE - 1 - height + 1; y < CHUNK_SIZE - 1 - height + 4; y++) {
                     if (y < CHUNK_SIZE) {
-                        setBlock(x, y, z, BlockType::DIRT);
+                        setBlock(x, y, z, BlockType::HGRASS);
                     }
                 }
-                
+
+                // Stone below dirt layers
                 for (int y = CHUNK_SIZE - 1 - height + 4; y < CHUNK_SIZE; y++) {
                     if (y < CHUNK_SIZE) {
                         setBlock(x, y, z, BlockType::STONE);

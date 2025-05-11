@@ -24,11 +24,14 @@ App::App() {
     globalPool = DescriptorPool::Builder(device)
         .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT)
         .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT)
-        .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
+        .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT + 1)
         .build();
     
     // Initialize chunk manager
     chunkManager = std::make_unique<ChunkManager>(device);
+    textureManager = std::make_shared<TextureManager>(device);
+
+    textureManager->loadTextures();
     
     loadGameObjects(); 
 } 
@@ -85,13 +88,12 @@ void App::run() {
         // Render Mode Toggle Logic
         bool rKeyPressedThisFrame = glfwGetKey(window.getWindow(), GLFW_KEY_R) == GLFW_PRESS;
         if (rKeyPressedThisFrame && !rKeyPressedLastFrame) {
-            if (static_cast<RenderMode>(config().getInt("render_mode")) == RenderMode::NORMAL_TEXTURED) {
+            if (static_cast<RenderMode>(config().getInt("render_mode")) == RenderMode::UV) {
                 config().setInt("render_mode", static_cast<int>(RenderMode::WIREFRAME));
             } else if (static_cast<RenderMode>(config().getInt("render_mode")) == RenderMode::WIREFRAME) {
-                // Cycle to the next mode or back to normal
-                // For now, just toggles back to normal. 
-                // Add more modes here in the future.
-                config().setInt("render_mode", static_cast<int>(RenderMode::NORMAL_TEXTURED)); 
+                config().setInt("render_mode", static_cast<int>(RenderMode::TEXTURE)); 
+            } else {
+                config().setInt("render_mode", static_cast<int>(RenderMode::UV));
             }
         }
         rKeyPressedLastFrame = rKeyPressedThisFrame;
@@ -117,7 +119,7 @@ void App::run() {
             
             imgui.newFrame();
             int frameIndex = renderer.getFrameIndex();
-            FrameInfo frameInfo{frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects, chunkManager.get()};
+            FrameInfo frameInfo{frameIndex, frameTime, commandBuffer, camera, globalDescriptorSets[frameIndex], gameObjects, chunkManager.get(), textureManager, globalPool};
 
             //update
             GlobalUbo ubo{};

@@ -119,9 +119,9 @@ private:
 };
 
 enum class RenderMode {
-    NORMAL_TEXTURED,
+    UV,
     WIREFRAME,
-    // Add other modes like WIREFRAME here later
+    TEXTURE,
 };
 
 // Global function to access the singleton instance

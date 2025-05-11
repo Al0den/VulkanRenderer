@@ -9,6 +9,8 @@
 
 namespace vkengine {
 
+constexpr uint32_t MAX_TEXTURE_UNITS = 16; // Maximum number of textures in the descriptor array
+
 struct TextureConfigEntry {
     BlockType id;
     std::string path; // File path to the texture

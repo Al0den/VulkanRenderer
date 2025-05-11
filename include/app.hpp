@@ -6,6 +6,7 @@
 #include "game_object.hpp"
 #include "descriptors.hpp"
 #include "chunk_manager.hpp"
+#include "texture_manager.hpp"
 
 #include <vector>
 
@@ -34,9 +35,13 @@ class App {
         Device device{window};
         Renderer renderer{window, device};
     
-        std::unique_ptr<DescriptorPool> globalPool{};
+        std::shared_ptr<DescriptorPool> globalPool{};
         GameObject::Map gameObjects{};
+
         std::unique_ptr<ChunkManager> chunkManager{};
+        std::shared_ptr<TextureManager> textureManager{};
+
+        VkDescriptorSet appTextureDescriptorSet;
 };
 
 }

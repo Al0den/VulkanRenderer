@@ -1,3 +1,5 @@
+#pragma once
+
 #include "device.hpp"
 #include "buffer.hpp" // If your Buffer class is used for staging
 #include "texture_config.hpp" // Include the new texture config header
@@ -18,23 +20,23 @@ public:
     TextureManager& operator=(const TextureManager&) = delete;
 
     /**
-     * @brief Loads textures based on the global texture configuration.
+     * @brief Loads textures based on the global texture configuration into a texture array.
      * All textures are expected to be 512x512.
      */
     void loadTextures();
 
-    const std::vector<VkImageView>& getTextureImageViews() const { return textureImageViews; }
+    VkImageView getTextureArrayImageView() const { return textureArrayImageView; }
     VkSampler getSampler() const { return sampler; }
-    size_t getTextureCount() const { return textureImageViews.size(); }
+    size_t getTextureCount() const { return numLayers; } // Represents the number of layers in the array
 
 private:
     Device& device;
 
-    // Store arrays of texture resources
-    std::vector<VkImage> textureImages;
-    std::vector<VkDeviceMemory> textureImageMemories;
-    std::vector<VkImageView> textureImageViews;
+    VkImage textureArrayImage;
+    VkDeviceMemory textureArrayImageMemory;
+    VkImageView textureArrayImageView;
     VkSampler sampler; // A single sampler can be used for all textures if sampling parameters are the same
+    size_t numLayers = 0; // Stores the number of loaded textures/layers
 
     // RawImage struct might still be useful for loading individual images before GPU upload
     struct RawImage {

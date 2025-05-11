@@ -146,7 +146,7 @@ void Config::initDefaults() {
     setInt("meshing_technique", static_cast<int>(MeshingTechnique::GREEDY)); // 0: Simple, 1: Greedy
     setFloat("player_speed", 30.0f);
     setFloat("fov", 60.0f);
-    setInt("render_mode", static_cast<int>(RenderMode::NORMAL_TEXTURED));
+    setInt("render_mode", static_cast<int>(RenderMode::UV));
 }
 
 std::vector<std::string> Config::getAllKeys() const {

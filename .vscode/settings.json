@@ -84,6 +84,7 @@
         "functional": "cpp",
         "memory_resource": "cpp",
         "stdfloat": "cpp",
-        "shared_mutex": "cpp"
+        "shared_mutex": "cpp",
+        "format": "cpp"
     }
 }
