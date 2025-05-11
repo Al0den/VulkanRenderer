@@ -70,7 +70,7 @@ void SimpleRenderSystem::createPipelines(VkRenderPass renderPass) {
     pipelineConfig.pipelineLayout = pipelineLayout;
 
     // Textured pipeline (original)
-    texturedPipeline = std::make_unique<Pipeline>(device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
+    uvPipeline = std::make_unique<Pipeline>(device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
 
     // Vertex visualization pipeline
     // We might need to adjust pipelineConfig for point rendering if not handled by the shader alone
@@ -102,7 +102,7 @@ void SimpleRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
             break;
         case RenderMode::NORMAL_TEXTURED:
         default:
-            currentPipeline = texturedPipeline.get();
+            currentPipeline = uvPipeline.get();
             break;
     }
 

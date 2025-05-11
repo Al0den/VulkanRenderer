@@ -27,7 +27,7 @@ class SimpleRenderSystem {
 
         Device &device;
 
-        std::unique_ptr<Pipeline> texturedPipeline;
+        std::unique_ptr<Pipeline> uvPipeline;
         std::unique_ptr<Pipeline> wireframePipeline;
         VkPipelineLayout pipelineLayout;
 };
