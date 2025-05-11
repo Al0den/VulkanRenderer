@@ -1,10 +1,10 @@
 \
 # Plan for Implementing Textures in VulkanRenderer
 
-## 1. Goal
+## 1. Goal (Done)
 Implement texture mapping for game objects, specifically allowing each block type to use a dedicated texture applied to all its faces. Textures will be loaded from the `textures/` directory.
 
-## 2. Project Analysis & Assumptions
+## 2. Project Analysis & Assumptions (Done)
 - The project uses Vulkan for rendering.
 - `stb_image.h` is available in `third-party/` for image loading.
 - `tinyobjloader.hpp` is available for model loading; models are assumed to support or be adaptable for texture coordinates (UVs).
@@ -14,7 +14,7 @@ Implement texture mapping for game objects, specifically allowing each block typ
 
 ## 3. Implementation Phases
 
-### Phase 1: Texture Representation and Loading
+### Phase 1: Texture Representation and Loading (Done)
 *   **1.1. Create `Texture` Class:**
     *   **Files:** `include/texture.hpp`, `src/texture.cpp`
     *   **Purpose:** Encapsulate Vulkan texture resources (`VkImage`, `VkImageView`, `VkSampler`, `VkDeviceMemory`) and loading logic.
@@ -31,10 +31,7 @@ Implement texture mapping for game objects, specifically allowing each block typ
 *   **2.1. Update Vertex Structure:**
     *   **File:** `include/model.hpp` (or relevant header defining `Vertex`).
     *   **Change:** Add `glm::vec2 uv;` (or similar) to the `Vertex` struct.
-*   **2.2. Update Model Loading:**
-    *   **File:** `src/model.cpp` (where `tinyobjloader` is used).
-    *   **Change:** Modify loading logic to extract texture coordinates from model files and populate the new `uv` vertex attribute.
-*   **2.3. Update Vertex Input Description:**
+*   **2.2. Update Vertex Input Description:**
     *   **File:** `src/model.cpp` (or `src/pipeline.cpp` where vertex input descriptions are defined).
     *   **Change:** Add `VkVertexInputAttributeDescription` for the `uv` attribute in `Model::getAttributeDescriptions()` (or equivalent). Ensure `Model::getBindingDescriptions()` is compatible.
 
@@ -91,7 +88,7 @@ Implement texture mapping for game objects, specifically allowing each block typ
     *   The user request: "for every block type to try and find its relevant texture in assets/, with the texture being identical for every face of the block."
 *   **6.2. Implement Texture Loading based on Convention:**
     *   Logic (likely in `TextureManager` or where `GameObjects` are initialized) to resolve the texture path based on the block type or `GameObject::textureName`.
-    *   Handle cases where a texture might not be found (e.g., use a default placeholder texture).
+    *   Handle cases where a texture might not be found (e.g., use a default placeholder texture like `textures/checker.png`).
 
 ### Phase 7: Build System Configuration
 *   **7.1. Update `CMakeLists.txt`:**
