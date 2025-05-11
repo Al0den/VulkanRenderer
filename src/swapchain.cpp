@@ -368,7 +368,6 @@ VkPresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<VkPresentMod
     }
 #endif
 #ifdef FIFO_PRESENT_MODE
-    std::cout << "Present mode: V-Sync" << std::endl;
     return VK_PRESENT_MODE_FIFO_KHR;
 #endif
     throw std::runtime_error("failed to find suitable present mode!");
