@@ -33,6 +33,13 @@ public:
 
     std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoord::Hash> m_chunks;
 
+    std::shared_ptr<Chunk> queueChunkCreation(const ChunkCoord& coord);
+    bool queueChunkTerrainGeneration(std::shared_ptr<Chunk> chunk);
+    bool queueChunkMeshGeneration(std::shared_ptr<Chunk> chunk);
+    bool updateGameObject(std::shared_ptr<Chunk> chunk);
+    bool updateActiveChunks(std::unordered_map<ChunkCoord, GameObject::id_t, ChunkCoord::Hash>& newActiveChunks, GameObject::Map& gameObjects, std::shared_ptr<Chunk> chunk);
+
+
     void regenerateEntireMesh();
 
     std::string serialize() const;

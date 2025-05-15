@@ -34,124 +34,130 @@ ChunkManager::ChunkManager(Device& deviceRef) : device{deviceRef} {
 }
 
 ChunkManager::~ChunkManager() {
-    // Clean up resources
+    waitForThreads();
+}
+
+std::shared_ptr<Chunk> ChunkManager::queueChunkCreation(const ChunkCoord& coord) {  
+    std::shared_lock<std::shared_mutex> lock(chunksMutex);
+    auto it = m_chunks.find(coord);
+    lock.unlock();
+    
+    if (it == m_chunks.end()) {
+        if(flags & ChunkManagerFlags::GENERATE_CHUNKS) {
+            std::lock_guard<std::mutex> lock(creationMutex);
+            chunksNeedingCreating.push(coord);
+            creationSemaphore.release();
+        }
+        return nullptr;
+    } else {
+        return it->second;
+    }
+}
+bool ChunkManager::queueChunkTerrainGeneration(std::shared_ptr<Chunk> chunk) {
+    ScopeTimer timer("ChunkManager::generateTerrain");
+    if(!chunk->defaultTerrainGenerated()) {
+        {
+            std::lock_guard<std::mutex> lock(terrainMutex);
+            chunksNeedingTerrainGeneration.push(chunk);
+            terrainSemaphore.release();
+        }
+        return false;
+    }
+    return true;
+}
+
+bool ChunkManager::queueChunkMeshGeneration(std::shared_ptr<Chunk> chunk) {
+    ScopeTimer timer("ChunkManager::generateMesh");
+    if(!chunk->meshGenerated()) {
+        {
+            std::lock_guard<std::mutex> lock(meshMutex);
+            chunksNeedingMeshUpdate.push(chunk);
+            meshSemaphore.release();
+        }
+        return false;
+
+    }
+
+    return true;
+}
+
+bool ChunkManager::updateGameObject(std::shared_ptr<Chunk> chunk) {
+    {
+        ScopeTimer timer("ChunkManager::updateGameObject");
+        if(!chunk->upToDate()) {
+            chunk->updateGameObject();
+        }
+    }
+    return true;
+}
+
+bool ChunkManager::updateActiveChunks(std::unordered_map<ChunkCoord, GameObject::id_t, ChunkCoord::Hash>& newActiveChunks, GameObject::Map& gameObjects, std::shared_ptr<Chunk> chunk) {
+    {
+        ScopeTimer timer("ChunkManager::updateActiveChunks");
+        // Get game object ID and add to new active chunks
+        GameObject::id_t objectId = chunk->getGameObject()->getId();
+        ChunkCoord coord = chunk->getChunkCoord();
+        // Make sure it is in the map
+        if (newActiveChunks.find(coord) != newActiveChunks.end()) {
+            // If already exists, skip adding
+            return false;
+        }
+        newActiveChunks[coord] = objectId;
+        if (gameObjects.find(objectId) == gameObjects.end()) {
+            gameObjects.emplace(objectId, chunk->getGameObject());
+        }
+    }
+    return true;
 }
 
 void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObject::Map& gameObjects) {
-    this->currentViewDistance = viewDistance;
-    // Convert world position to chunk coordinates
-    
     ChunkCoord centerChunk = worldToChunkCoord(playerPos);
     
-    // Create a set for new active chunks
     std::unordered_map<ChunkCoord, GameObject::id_t, ChunkCoord::Hash> newActiveChunks;
     
-    // Define vertical view range (how many chunks up and down to render)
-    // Using a smaller value for vertical range since worlds are typically wider than tall
     int verticalViewRange = viewDistance / 2 + 1;  // Adjust as needed
     
-    
-    // Generate/update chunks within view distance in 3D space
     for (int x = centerChunk.x - viewDistance; x <= centerChunk.x + viewDistance; x++) {
         for (int y = centerChunk.y - verticalViewRange; y <= centerChunk.y + verticalViewRange; y++) {
             for (int z = centerChunk.z - viewDistance; z <= centerChunk.z + viewDistance; z++) {
                 ChunkCoord coord{x, y, z};
                 
-                // Check if the chunk is within the view distance (using squared distance for efficiency)
-                
                 if (isChunkInRange(coord, centerChunk, viewDistance)) {
-                    // Check if chunk already exists
-                    
-                    std::shared_ptr<Chunk> chunk;
-                    
-                    { 
-                        ScopeTimer timer("ChunkManager::createChunk");
-                        {
-                            
-                            std::shared_lock<std::shared_mutex> lock(chunksMutex);
-                            auto it = m_chunks.find(coord);
-                            lock.unlock();
-                            
-                            if (it == m_chunks.end()) {
-                                if(flags & ChunkManagerFlags::GENERATE_CHUNKS) {
-                                    std::lock_guard<std::mutex> lock(creationMutex);
-                                    chunksNeedingCreating.push(coord);
-                                    creationSemaphore.release();
-                                }
-                                continue;
-                            } else {
-                                chunk = it->second;
-                            }
-                        }
-                    }
+                    std::shared_ptr<Chunk> chunk = queueChunkCreation(coord);
+                    if(chunk == nullptr) { continue; }
 
-                    {
-                        ScopeTimer timer("ChunkManager::generateTerrain");
-                        if(!chunk->defaultTerrainGenerated()) {
-                            {
-                                std::lock_guard<std::mutex> lock(terrainMutex);
-                                chunksNeedingTerrainGeneration.push(chunk);
-                                terrainSemaphore.release();
-                            }
-                            continue;
-                        }
-                    }
-
-                    
-                    {
-                        ScopeTimer timer("ChunkManager::generateMesh");
-                        if(!chunk->meshGenerated()) {
-                            {
-                                std::lock_guard<std::mutex> lock(meshMutex);
-                                chunksNeedingMeshUpdate.push(chunk);
-                                meshSemaphore.release();
-                            }
-                            continue;
-
-                        }
-                        
-                    }
-                    
-                    {
-                        ScopeTimer timer("ChunkManager::updateGameObject");
-                        if(!chunk->upToDate()) {
-                            chunk->updateGameObject();
-                        }
-                    }
-
-                    {
-                        ScopeTimer timer("ChunkManager::updateActiveChunks");
-                        // Get game object ID and add to new active chunks
-                        GameObject::id_t objectId = chunk->getGameObject()->getId();
-                        newActiveChunks[coord] = objectId;
-                        if (gameObjects.find(objectId) == gameObjects.end()) {
-                            gameObjects.emplace(objectId, chunk->getGameObject());
-                        }
-                    }
-                    
+                    if(!queueChunkTerrainGeneration(chunk)) { continue; }
+                    if(!queueChunkMeshGeneration(chunk)) { continue; }
+                    if(!updateGameObject(chunk)) { continue; }
+                    if(!updateActiveChunks(newActiveChunks, gameObjects, chunk)) { continue; }
                 }
             }
         }
     }
-    
-    // Remove game objects for chunks that are no longer active
-    for (const auto& [coord, objectId] : m_activeChunks) {
-        ScopeTimer timer("ChunkManager::removeInactiveChunks");
-        if (newActiveChunks.find(coord) == newActiveChunks.end()) {
-            gameObjects.erase(objectId);
 
-            std::shared_lock<std::shared_mutex> lock(chunksMutex);
+    ScopeTimer timer("ChunkManager::updateActiveChunks");
 
-            auto it = m_chunks.find(coord);
-            if (it != m_chunks.end()) {
-                auto chunk = it->second;
-                chunk->clearMesh();
-            }
+    for (const auto& [coord, objectId] : newActiveChunks) {
+        if (m_activeChunks.find(coord) == m_activeChunks.end()) {
+            m_activeChunks[coord] = objectId;
         }
     }
     
-    // Update active chunks
-    m_activeChunks = newActiveChunks;
+    std::vector<ChunkCoord> chunksToRemove;
+    for (const auto& [coord, objectId] : m_activeChunks) {
+        ScopeTimer timer("ChunkManager::removeInactiveChunks");
+        if(isChunkInRange(coord, centerChunk, viewDistance)) {
+            continue;
+        } else {
+            chunksToRemove.push_back(coord);
+        }
+    }
+
+    for (const auto& coord : chunksToRemove) {
+        GameObject::id_t objectId = m_activeChunks[coord];
+        m_activeChunks.erase(coord);
+        gameObjects.erase(objectId);
+    }
 }
 
 ChunkCoord ChunkManager::worldToChunkCoord(const glm::vec3& position) {
@@ -196,14 +202,21 @@ void ChunkManager::stopAllThreads() {
 }
 
 void ChunkManager::waitForThreads() {
-    // This function would typically join all the threads.
-    // However, the thread objects themselves are not stored in the ChunkManager in the provided code.
-    // Assuming threads are managed elsewhere or this is a simplified scenario.
-    // If you have std::vector<std::thread> members for each thread type, you'd join them here.
-    // For example:
-    // for (auto& thread : creationThreads) { if (thread.joinable()) thread.join(); }
-    // for (auto& thread : terrainThreads) { if (thread.joinable()) thread.join(); }
-    // for (auto& thread : meshThreads) { if (thread.joinable()) thread.join(); }
+    stopThreads = true;
+    
+    // Notify all semaphores to wake up threads
+    terrainSemaphore.release(numTerrainThreads);
+    meshSemaphore.release(numMeshThreads);
+    creationSemaphore.release(numCreationThreads);
+    
+    // Join all threads
+    for (auto& thread : threads) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+    
+    threads.clear();
 }
 
 void ChunkManager::chunksTerrainGenerationThread() {
