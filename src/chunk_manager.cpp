@@ -145,7 +145,6 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
     
     std::vector<ChunkCoord> chunksToRemove;
     for (const auto& [coord, objectId] : m_activeChunks) {
-        ScopeTimer timer("ChunkManager::removeInactiveChunks");
         if(isChunkInRange(coord, centerChunk, viewDistance)) {
             continue;
         } else {
