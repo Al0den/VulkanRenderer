@@ -8,8 +8,7 @@ namespace vkengine {
 void Chunk::generateMesh() {
     m_vertices.clear();
     m_indices.clear();
-    m_vertexCache.clear(); // Clear the vertex cache before regenerating the mesh
-    
+
     glm::vec3 chunkPos = m_gameObject->transform.translation;
     int chunkX = static_cast<int>(chunkPos.x / CHUNK_SIZE);
     int chunkY = static_cast<int>(chunkPos.y / CHUNK_SIZE);
@@ -106,14 +105,16 @@ void Chunk::generateMesh() {
         }
     }
 
-    m_meshGenerated = true;
-    m_upToDate = false;
+    flags |= ChunkFlags::MESH_GENERATED;
+    flags &= ~ChunkFlags::UP_TO_DATE;
 }
 
 void Chunk::generateGreedyMesh() {
     m_vertices.clear();
     m_indices.clear();
-    m_vertexCache.clear(); // Clear the vertex cache before regenerating the mesh
+
+    m_vertices.reserve(CHUNK_SIZE * CHUNK_SIZE * 6);
+    m_indices.reserve(CHUNK_SIZE * CHUNK_SIZE * 6);
     
     glm::vec3 chunkPos = m_gameObject->transform.translation;
     int chunkX = static_cast<int>(chunkPos.x / CHUNK_SIZE);
@@ -138,9 +139,9 @@ void Chunk::generateGreedyMesh() {
     processGreedyDirection(Direction::BACK, neighborZPos);
     processGreedyDirection(Direction::LEFT, neighborXNeg);
     processGreedyDirection(Direction::RIGHT, neighborXPos);
-    
-    m_meshGenerated = true;
-    m_upToDate = false;
+
+    flags |= ChunkFlags::MESH_GENERATED;
+    flags &= ~ChunkFlags::UP_TO_DATE;
 }
 
 // Helper method to process greedy meshing for a specific direction
@@ -404,7 +405,7 @@ void Chunk::updateGameObject() {
         }
     }
 
-    m_upToDate = true;
+    flags |= ChunkFlags::UP_TO_DATE;
 }
 
 void Chunk::addBlockFace(int x, int y, int z, BlockType blockType, Direction direction) {

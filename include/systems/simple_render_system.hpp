@@ -33,7 +33,9 @@ private:
 
     std::unique_ptr<Pipeline> uvPipeline;
     std::unique_ptr<Pipeline> wireframePipeline;
-    std::unique_ptr<Pipeline> texturePipeline; // For texture atlas rendering
+    std::unique_ptr<Pipeline> texturePipeline;
+    std::unique_ptr<Pipeline> colorPipeline;
+    
     VkPipelineLayout pipelineLayout;
 
     std::unique_ptr<DescriptorSetLayout> textureSetLayout; // For texture atlas

@@ -118,11 +118,6 @@ private:
     std::unordered_map<std::string, ConfigValue> values;
 };
 
-enum class RenderMode {
-    UV,
-    WIREFRAME,
-    TEXTURE,
-};
 
 // Global function to access the singleton instance
 inline Config& config() {

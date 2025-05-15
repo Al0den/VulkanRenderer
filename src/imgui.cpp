@@ -269,7 +269,7 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
         
         // Meshing technique selection
         static const char* meshingTechniques[] = { "Regular Meshing", "Greedy Meshing" };
-        static const char* renderMethods[] = { "UV", "Wireframe", "Texture"};
+        static const char* renderMethods[] = { "UV", "Wireframe", "Texture", "Color"};
         static int currentRenderMethod = config().getInt("render_mode");
         static int currentMeshingTechnique = config().getInt("meshing_technique");
         
@@ -290,6 +290,48 @@ void Imgui::debugWindow(FrameInfo& frameInfo) {
         ImGui::Text("Triangles: %d", numIndices / 3);
         ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
         
+        ImGui::End();
+    }
+    {
+        ImGui::Begin("World");
+        if (ImGui::Button("Save World")) {
+            // Save world logic here
+            std::string worldData = frameInfo.chunkManager->serialize();
+            std::ofstream outFile("./data/world_data.txt");
+            if (outFile.is_open()) {
+                outFile << worldData;
+                outFile.close();
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "World saved successfully!");
+            } else {
+                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Failed to save world.");
+            }
+        }
+        static const char* generateChunks[] = { "False", "True"};
+        static int generateChunksCurrent = frameInfo.chunkManager->flags & ChunkManagerFlags::GENERATE_CHUNKS;
+        ImGui::Text("Generating Chunks");
+
+        if (ImGui::Combo("##Generate Chunks", &generateChunksCurrent, generateChunks, IM_ARRAYSIZE(generateChunks))) {
+            if (generateChunksCurrent) {
+                frameInfo.chunkManager->flags |= ChunkManagerFlags::GENERATE_CHUNKS;
+            } else {
+                frameInfo.chunkManager->flags &= ~ChunkManagerFlags::GENERATE_CHUNKS;
+            }
+        }
+
+        if (ImGui::Button("Load Map")) {
+            // Load world logic here
+            std::ifstream inFile("./data/world_data.txt");
+            if (inFile.is_open()) {
+                std::string worldData((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>());
+                frameInfo.chunkManager->deserialize(worldData);
+                inFile.close();
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "World loaded successfully!");
+            } else {
+                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Failed to load world.");
+            }
+
+            frameInfo.chunkManager->flags &= ~ChunkManagerFlags::GENERATE_CHUNKS;
+        }
         ImGui::End();
     }
     

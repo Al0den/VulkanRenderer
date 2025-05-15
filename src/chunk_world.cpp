@@ -1,6 +1,10 @@
 #include "chunk.hpp"
 #include "game_object.hpp"
 #include "perlin_noise.hpp"
+#include <algorithm> // added for std::clamp
+#include <iostream> // added for std::cout
+#include <string>
+#include <sstream>
 
 namespace vkengine {
 
@@ -18,89 +22,40 @@ void Chunk::initialize() {
 
 
 void Chunk::generateTerrain() {
-    float chunkYPos = m_gameObject->transform.translation.y;
-    int chunkY = static_cast<int>(chunkYPos / CHUNK_SIZE);
-    
-    if (chunkY < 0) {
-        fill(0, 0, 0, CHUNK_SIZE - 1, CHUNK_SIZE - 1, CHUNK_SIZE - 1, BlockType::AIR);
+    // Basic elevation-based terrain using Perlin noise
+    ChunkCoord coord = getChunkCoord();
+    int worldOffsetX = coord.x * CHUNK_SIZE;
+    int worldOffsetZ = coord.z * CHUNK_SIZE;
 
-    } else if (chunkY > 0) {
-        fill(0, 0, 0, CHUNK_SIZE - 1, CHUNK_SIZE - 1, CHUNK_SIZE - 1, BlockType::STONE);  
-    } else {
-        std::array<int, CHUNK_SIZE * CHUNK_SIZE> heightMap;
-        
-        static PerlinNoise perlin(42);
-        
-        const double scale = 0.1;
-        const int octaves = 4;
-        const double persistence = 0.5;
-        const double heightScale = 3.0;
-        const double baseHeight = CHUNK_SIZE / 2.0f;
-        
-        float chunkXPos = m_gameObject->transform.translation.x;
-        float chunkZPos = m_gameObject->transform.translation.z;
-        int chunkX = static_cast<int>(chunkXPos / CHUNK_SIZE);
-        int chunkZ = static_cast<int>(chunkZPos / CHUNK_SIZE);
-        
-        for (int x = 0; x < CHUNK_SIZE; x++) {
-            for (int z = 0; z < CHUNK_SIZE; z++) {
-                double worldX = (chunkX * CHUNK_SIZE + x) * scale;
-                double worldZ = (chunkZ * CHUNK_SIZE + z) * scale;
-                
-                double noiseValue = perlin.octaveNoise(worldX, worldZ, octaves, persistence);
-                
-                noiseValue = (noiseValue + 1.0) * 0.5;
-                
-                float heightValue = baseHeight + static_cast<float>(noiseValue * heightScale);
-                
-                double mountainNoise = perlin.noise(worldX * 0.5, worldZ * 0.5);
-                if (mountainNoise > 0.3) {
-                    heightValue += static_cast<float>((mountainNoise - 0.3) * 12.0);
-                }
-                
-                int height = static_cast<int>(std::min(std::max(heightValue, 0.0f), static_cast<float>(CHUNK_SIZE - 1)));
-                
-                heightMap[x + z * CHUNK_SIZE] = height;
-            }
-        }
-        
-        for (int x = 0; x < CHUNK_SIZE; x++) {
-            for (int z = 0; z < CHUNK_SIZE; z++) {
-                int height = heightMap[x + z * CHUNK_SIZE];
-                
-                // Surface grass
-                setBlock(x, CHUNK_SIZE - 1 - height, z, BlockType::GRASS);
-                int surfaceY = CHUNK_SIZE - 1 - height;
-                // High grass immediately above surface grass
-                if (surfaceY + 1 < CHUNK_SIZE) {
-                    setBlock(x, surfaceY + 1, z, BlockType::GRASS);
-                }
-                // Dirt layers above high grass
-                for (int y = surfaceY + 2; y < surfaceY + 4; y++) {
-                    if (y < CHUNK_SIZE) {
-                        setBlock(x, y, z, BlockType::GRASS);
-                    }
-                }
-                // Stone below dirt layers
-                for (int y = surfaceY + 4; y < CHUNK_SIZE; y++) {
-                    if (y < CHUNK_SIZE) {
-                        setBlock(x, y, z, BlockType::STONE);
-                    }
-                }
-                
-                if (height > CHUNK_SIZE * 2 / 3) {
-                    for (int y = CHUNK_SIZE - 1 - height - 1; y >= CHUNK_SIZE - 1 - CHUNK_SIZE / 3; y--) {
-                        if (y >= 0) {
-                            setBlock(x, y, z, BlockType::WATER);
-                        }
-                    }
+    for (int x = 0; x < CHUNK_SIZE; ++x) {
+        for (int z = 0; z < CHUNK_SIZE; ++z) {
+            // Get elevation from perlin noise.
+            double nx = (worldOffsetX + x) * settings.elevFrequency;
+            double nz = (worldOffsetZ + z) * settings.elevFrequency;
+            double e = settings.elevationNoise.octaveNoise(nx, nz, settings.elevOctaves, settings.elevPersistence);
+            int height = static_cast<int>(e * settings.elevHeightScale + settings.elevBaseHeight);
+            height = std::clamp(height, 0, CHUNK_SIZE - 1);
+
+            // Fill column by global world height
+            for (int y = 0; y < CHUNK_SIZE; ++y) {
+                // account for negative-y-up: flip local y so y=0 is top
+                int worldY = coord.y * CHUNK_SIZE + (CHUNK_SIZE - 1 - y);
+                if (worldY < height - settings.baseSoilDepth) {
+                    setBlock(x, y, z, BlockType::STONE);
+                } else if (worldY < height) {
+                    setBlock(x, y, z, BlockType::DIRT);
+                } else if (worldY == height) {
+                    setBlock(x, y, z, BlockType::GRASS);
+                } else {
+                    setBlock(x, y, z, BlockType::AIR);
                 }
             }
         }
     }
 
-    m_defaultTerrainGenerated = true;
-    m_updated = true;
+    flags |= ChunkFlags::DEFAULT_TERRAIN_GENERATED;
+    flags &= ~ChunkFlags::MESH_GENERATED;
+    flags &= ~ChunkFlags::UP_TO_DATE;
 }
 
 void Chunk::fill(int x1, int y1, int z1, int x2, int y2, int z2, BlockType blockType) {
@@ -123,7 +78,7 @@ void Chunk::fill(int x1, int y1, int z1, int x2, int y2, int z2, BlockType block
         }
     }
     
-    m_meshGenerated = false;
+    flags &= ~ChunkFlags::MESH_GENERATED;
 }
 
 void Chunk::setBlock(int x, int y, int z, BlockType blockType) {
@@ -132,7 +87,7 @@ void Chunk::setBlock(int x, int y, int z, BlockType blockType) {
         
         if (m_blocks[index].type != blockType) {
             m_blocks[index].type = blockType;
-            m_meshGenerated = false;
+            flags &= ~ChunkFlags::MESH_GENERATED;
         }
     }
 }
@@ -156,4 +111,107 @@ int Chunk::coordsToIndex(int x, int y, int z) const {
     return x + (y * CHUNK_SIZE) + (z * CHUNK_SIZE * CHUNK_SIZE);
 }
 
+std::string Chunk::serialize() const {
+    std::string out;
+    // reserve header + worst-case RLE (2 bytes per block)
+    out.reserve(3 * sizeof(int32_t) + 2 * m_blocks.size());
+
+    // 1) Write X,Y,Z as 32-bit ints
+    int32_t xi = static_cast<int32_t>(m_gameObject->transform.translation.x);
+    int32_t yi = static_cast<int32_t>(m_gameObject->transform.translation.y);
+    int32_t zi = static_cast<int32_t>(m_gameObject->transform.translation.z);
+    out.append(reinterpret_cast<const char*>(&xi), sizeof(xi));
+    out.append(reinterpret_cast<const char*>(&yi), sizeof(yi));
+    out.append(reinterpret_cast<const char*>(&zi), sizeof(zi));
+
+    // 2) RLE-encode block types
+    if (!m_blocks.empty()) {
+        uint8_t runType  = uint8_t(m_blocks[0].type);
+        uint8_t runCount = 1;
+        for (size_t i = 1; i < m_blocks.size(); ++i) {
+            uint8_t t = uint8_t(m_blocks[i].type);
+            if (t == runType && runCount < 255) {
+                ++runCount;
+            } else {
+                out.push_back(static_cast<char>(runType));
+                out.push_back(static_cast<char>(runCount));
+                runType  = t;
+                runCount = 1;
+            }
+        }
+        // flush final run
+        out.push_back(static_cast<char>(runType));
+        out.push_back(static_cast<char>(runCount));
+    }
+
+    return out;
 }
+
+void Chunk::deserialize(const std::string& in) {
+    // 1) Must be at least 12 bytes for X,Y,Z
+    constexpr size_t HEADER = 3 * sizeof(int32_t);
+    if (in.size() < HEADER)
+        throw std::runtime_error("Chunk data too short");
+
+    // 2) Read X,Y,Z
+    int32_t xi, yi, zi;
+    std::memcpy(&xi, in.data() +   0, sizeof(xi));
+    std::memcpy(&yi, in.data() +   4, sizeof(yi));
+    std::memcpy(&zi, in.data() +   8, sizeof(zi));
+
+    // Apply to existing GameObject
+    m_gameObject->transform.translation.x = float(xi);
+    m_gameObject->transform.translation.y = float(yi);
+    m_gameObject->transform.translation.z = float(zi);
+
+    // 3) Clear existing blocks: fill with air
+    fill(0, 0, 0, CHUNK_SIZE - 1, CHUNK_SIZE - 1, CHUNK_SIZE - 1, BlockType::AIR);
+
+    // 4) RLE-decode blocks into the vector
+    size_t idx = HEADER;
+    size_t write = 0;
+    while (idx + 2 <= in.size() && write < m_blocks.size()) {
+        uint8_t t     = static_cast<uint8_t>(in[idx]);
+        uint8_t count = static_cast<uint8_t>(in[idx+1]);
+        idx += 2;
+        for (uint8_t c = 0; c < count && write < m_blocks.size(); ++c) {
+            m_blocks[write++].type = BlockType(t);
+        }
+    }
+}
+
+bool Chunk::allNeighborsLoaded() const {
+    for (const auto& neighbor : m_neighbors) {
+        if (!neighbor) return false;
+    }
+    return true;
+}
+
+void Chunk::clearMesh() {
+    m_vertices.clear();
+    m_indices.clear();
+    flags &= ~ChunkFlags::MESH_GENERATED;
+}
+
+ChunkCoord Chunk::getChunkCoord() const {
+    return { static_cast<int>(m_gameObject->transform.translation.x / CHUNK_SIZE),
+             static_cast<int>(m_gameObject->transform.translation.y / CHUNK_SIZE),
+             static_cast<int>(m_gameObject->transform.translation.z / CHUNK_SIZE) };
+}
+
+void Chunk::setMeshGenerated(bool generated) {
+    if (generated) {
+        flags |= ChunkFlags::MESH_GENERATED;
+    } else {
+        flags &= ~ChunkFlags::MESH_GENERATED;
+    }
+}
+void Chunk::setUpToDate(bool upToDate) {
+    if (upToDate) {
+        flags |= ChunkFlags::UP_TO_DATE;
+    } else {
+        flags &= ~ChunkFlags::UP_TO_DATE;
+    }
+}
+
+} // namespace vkengine

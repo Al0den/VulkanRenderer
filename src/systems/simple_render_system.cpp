@@ -1,5 +1,6 @@
 #include "../../include/systems/simple_render_system.hpp"
 #include "../../include/config.hpp" // Added for g_currentRenderMode
+#include "../../include/scope_timer.hpp" // Added for texture configuration
 
 #include <stdexcept>
 #include <cstdlib>
@@ -13,6 +14,7 @@
 #include <glm/gtc/constants.hpp>
 
 using namespace vkengine;
+using ScopeTimer = GlobalTimerData::ScopeTimer;
 
 struct SimplePushConstantData {
     glm::mat4 modelMatrix{1.f};
@@ -54,16 +56,6 @@ void SimpleRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLay
     }
 }
 
-// void SimpleRenderSystem::createPipeline(VkRenderPass renderPass) { // Replaced by createPipelines
-//     assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
-// 
-//     PipelineConfigInfo pipelineConfig{};
-//     Pipeline::defaultPipelineConfigInfo(pipelineConfig); 
-//     pipelineConfig.renderPass = renderPass;
-//     pipelineConfig.pipelineLayout = pipelineLayout;
-//     pipeline = std::make_unique<Pipeline>(device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
-// }
-
 void SimpleRenderSystem::createPipelines(VkRenderPass renderPass) {
     assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
@@ -73,19 +65,12 @@ void SimpleRenderSystem::createPipelines(VkRenderPass renderPass) {
     pipelineConfig.pipelineLayout = pipelineLayout;
 
     // Textured pipeline (original uvPipeline)
-    uvPipeline = std::make_unique<Pipeline>(device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
+    uvPipeline = std::make_unique<Pipeline>(device, "shaders/uv_shader.vert.spv", "shaders/uv_shader.frag.spv", pipelineConfig);
+    colorPipeline = std::make_unique<Pipeline>(device, "shaders/color_shader.vert.spv", "shaders/color_shader.frag.spv", pipelineConfig);
 
     // Texture Atlas Pipeline
     // Assumes Model::Vertex::getAttributeDescriptions() includes the 'inBlockType' attribute
     texturePipeline = std::make_unique<Pipeline>(device, "shaders/texture_shader.vert.spv", "shaders/texture_shader.frag.spv", pipelineConfig);
-
-    // Vertex visualization pipeline
-    // We might need to adjust pipelineConfig for point rendering if not handled by the shader alone
-    // For example, if you want to ensure points are drawn:
-    // pipelineConfig.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-    // pipelineConfig.rasterizationInfo.polygonMode = VK_POLYGON_MODE_POINT; // If you want to see vertices of triangles as points
-    // However, the vertex_highlight.vert shader uses gl_PointSize, which should work with triangle topology.
-    // If issues arise, these settings are the first to check.
     PipelineConfigInfo wireframePipelineConfig = pipelineConfig; // Start with a copy
     // If your vertex_highlight shader is designed to work with point topology:
     // vertexVisPipelineConfig.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
@@ -103,18 +88,17 @@ void SimpleRenderSystem::createPipelines(VkRenderPass renderPass) {
 void SimpleRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
     Pipeline* currentPipeline = nullptr;
 
-    // Assuming a RenderMode::TEXTURE_ATLAS enum value exists or will be added
-    // And config().getInt("render_mode") can return its corresponding integer value
-    enum class TempRenderMode { UV = 0, WIREFRAME = 1, TEXTURE_ATLAS = 2 }; // Example, replace with your actual RenderMode
-
-    switch (static_cast<TempRenderMode>(config().getInt("render_mode"))) {
-        case TempRenderMode::WIREFRAME:
+    switch (static_cast<RenderMode>(config().getInt("render_mode"))) {
+        case RenderMode::WIREFRAME:
             currentPipeline = wireframePipeline.get();
             break;
-        case TempRenderMode::TEXTURE_ATLAS: // New case for texture atlas rendering
+        case RenderMode::TEXTURE: // New case for texture atlas rendering
             currentPipeline = texturePipeline.get();
             break;
-        case TempRenderMode::UV:
+        case RenderMode::COLOR:
+            currentPipeline = colorPipeline.get();
+            break;
+        case RenderMode::UV:
         default:
             currentPipeline = uvPipeline.get();
             break;
@@ -127,7 +111,7 @@ void SimpleRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
     currentPipeline->bind(frameInfo.commandBuffer);
 
     vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &frameInfo.globalDescriptorSet, 0, nullptr);
-    if (static_cast<TempRenderMode>(config().getInt("render_mode")) == TempRenderMode::TEXTURE_ATLAS) {
+    if (static_cast<RenderMode>(config().getInt("render_mode")) == RenderMode::TEXTURE) {
         std::shared_ptr<TextureManager> textureManager = frameInfo.textureManager;
         if (textureManager && textureManager->getTextureArrayImageView() != VK_NULL_HANDLE) {
             // Check if the descriptor set needs to be created or updated
@@ -144,10 +128,13 @@ void SimpleRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
                 if (!buildSuccess) {
                     throw std::runtime_error("Failed to build texture descriptor set");
                 }
+                std::cout << "Texture descriptor set bound successfully." << std::endl;
             }
             // Ensure textureDescriptorSet is valid before binding
             if (textureDescriptorSet != VK_NULL_HANDLE) {
+              
                 vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &textureDescriptorSet, 0, nullptr);
+                
             } else {
                  throw std::runtime_error("Texture descriptor set is null even after attempting to build");
             }

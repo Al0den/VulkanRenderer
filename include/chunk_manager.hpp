@@ -30,13 +30,18 @@ public:
     bool isChunkInRange(const ChunkCoord& chunkCoord, const ChunkCoord& centerChunk, int viewDistance);
     
     std::shared_ptr<Chunk> createChunk(const ChunkCoord& coord);
-    
 
     std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoord::Hash> m_chunks;
 
     void regenerateEntireMesh();
 
+    std::string serialize() const;
+    void deserialize(const std::string& data);
+
+    int flags = ChunkManagerFlags::GENERATE_CHUNKS;
+
 private:
+    int currentViewDistance = 2;
     Device& device;
     
     std::unordered_map<ChunkCoord, GameObject::id_t, ChunkCoord::Hash> m_activeChunks;
@@ -44,6 +49,7 @@ private:
     std::queue<ChunkCoord> chunksNeedingCreating;
     std::queue<std::shared_ptr<Chunk>> chunksNeedingTerrainGeneration;
     std::queue<std::shared_ptr<Chunk>> chunksNeedingMeshUpdate;
+    std::queue<std::shared_ptr<Chunk>> chunksNeedingPush;
 
     std::vector<std::thread> threads;
 
@@ -56,21 +62,23 @@ private:
     void chunksTerrainGenerationThread();
     void chunksMeshUpdateThread();
     void chunksCreationThread();
+    void chunksPushThread();
 
     std::atomic<bool> stopThreads{false};
 
     std::counting_semaphore<1024> creationSemaphore{0};
     std::counting_semaphore<1024> terrainSemaphore{0};
     std::counting_semaphore<1024> meshSemaphore{0};
+    std::counting_semaphore<1024> pushSemaphore{0};
     
     std::mutex creationMutex;
     std::mutex terrainMutex;
     std::mutex meshMutex;
+    std::mutex pushMutex;
     
     void stopAllThreads();
 
     void waitForThreads();
-    
 };
 
 } // namespace vkengine

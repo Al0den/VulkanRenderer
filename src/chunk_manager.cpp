@@ -38,6 +38,7 @@ ChunkManager::~ChunkManager() {
 }
 
 void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObject::Map& gameObjects) {
+    this->currentViewDistance = viewDistance;
     // Convert world position to chunk coordinates
     
     ChunkCoord centerChunk = worldToChunkCoord(playerPos);
@@ -72,9 +73,11 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
                             lock.unlock();
                             
                             if (it == m_chunks.end()) {
-                                std::lock_guard<std::mutex> lock(creationMutex);
-                                chunksNeedingCreating.push(coord);
-                                creationSemaphore.release();
+                                if(flags & ChunkManagerFlags::GENERATE_CHUNKS) {
+                                    std::lock_guard<std::mutex> lock(creationMutex);
+                                    chunksNeedingCreating.push(coord);
+                                    creationSemaphore.release();
+                                }
                                 continue;
                             } else {
                                 chunk = it->second;
@@ -133,6 +136,7 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
     
     // Remove game objects for chunks that are no longer active
     for (const auto& [coord, objectId] : m_activeChunks) {
+        ScopeTimer timer("ChunkManager::removeInactiveChunks");
         if (newActiveChunks.find(coord) == newActiveChunks.end()) {
             gameObjects.erase(objectId);
 
@@ -324,4 +328,27 @@ void ChunkManager::regenerateEntireMesh() {
     }
 }
 
+std::string ChunkManager::serialize() const {
+    std::string data;
+    for (const auto& chunkPair : m_chunks) {
+        data += chunkPair.second->serialize() + "\n";
+    }
+    return data;
+}
+
+void ChunkManager::deserialize(const std::string& data) {
+    // Clear existing chunks
+    m_chunks.clear();
+    m_activeChunks.clear();
+    std::istringstream iss(data);
+    std::string line;
+    
+    while (std::getline(iss, line)) {
+        if (!line.empty()) {
+            auto chunk = std::make_shared<Chunk>(device, GameObject::createGameObject());
+            chunk->deserialize(line);
+            m_chunks[chunk->getChunkCoord()] = chunk;
+        }
+    }
+}
 }
