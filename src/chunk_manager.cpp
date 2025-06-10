@@ -91,18 +91,13 @@ bool ChunkManager::updateGameObject(std::shared_ptr<Chunk> chunk) {
     return true;
 }
 
-bool ChunkManager::updateActiveChunks(std::unordered_map<ChunkCoord, GameObject::id_t, ChunkCoord::Hash>& newActiveChunks, GameObject::Map& gameObjects, std::shared_ptr<Chunk> chunk) {
+bool ChunkManager::updateActiveChunks(GameObject::Map& gameObjects, std::shared_ptr<Chunk> chunk) {
     {
         ScopeTimer timer("ChunkManager::updateActiveChunks");
-        // Get game object ID and add to new active chunks
         GameObject::id_t objectId = chunk->getGameObject()->getId();
         ChunkCoord coord = chunk->getChunkCoord();
-        // Make sure it is in the map
-        if (newActiveChunks.find(coord) != newActiveChunks.end()) {
-            // If already exists, skip adding
-            return false;
-        }
-        newActiveChunks[coord] = objectId;
+
+        newChunks.push(chunk);
         if (gameObjects.find(objectId) == gameObjects.end()) {
             gameObjects.emplace(objectId, chunk->getGameObject());
         }
@@ -110,10 +105,10 @@ bool ChunkManager::updateActiveChunks(std::unordered_map<ChunkCoord, GameObject:
     return true;
 }
 
-void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObject::Map& gameObjects) {
-    ChunkCoord centerChunk = worldToChunkCoord(playerPos);
+void ChunkManager::loopOverChunksThread(const glm::vec3& playerPos, int viewDistance, GameObject::Map& gameObjects) {
+    ScopeTimer timer("ChunkManager::loopOverChunks");
     
-    std::unordered_map<ChunkCoord, GameObject::id_t, ChunkCoord::Hash> newActiveChunks;
+    ChunkCoord centerChunk = worldToChunkCoord(playerPos);
     
     int verticalViewRange = viewDistance / 2 + 1;  // Adjust as needed
     
@@ -129,7 +124,31 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
                     if(!queueChunkTerrainGeneration(chunk)) { continue; }
                     if(!queueChunkMeshGeneration(chunk)) { continue; }
                     if(!updateGameObject(chunk)) { continue; }
-                    if(!updateActiveChunks(newActiveChunks, gameObjects, chunk)) { continue; }
+                    if(!updateActiveChunks(gameObjects, chunk)) { continue; }
+                }
+            }
+        }
+    }
+}
+
+void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObject::Map& gameObjects) {
+    ChunkCoord centerChunk = worldToChunkCoord(playerPos);
+    
+    int verticalViewRange = viewDistance / 2 + 1;  // Adjust as needed
+    
+    for (int x = centerChunk.x - viewDistance; x <= centerChunk.x + viewDistance; x++) {
+        for (int y = centerChunk.y - verticalViewRange; y <= centerChunk.y + verticalViewRange; y++) {
+            for (int z = centerChunk.z - viewDistance; z <= centerChunk.z + viewDistance; z++) {
+                ChunkCoord coord{x, y, z};
+                
+                if (isChunkInRange(coord, centerChunk, viewDistance)) {
+                    std::shared_ptr<Chunk> chunk = queueChunkCreation(coord);
+                    if(chunk == nullptr) { continue; }
+
+                    if(!queueChunkTerrainGeneration(chunk)) { continue; }
+                    if(!queueChunkMeshGeneration(chunk)) { continue; }
+                    if(!updateGameObject(chunk)) { continue; }
+                    if(!updateActiveChunks(gameObjects, chunk)) { continue; }
                 }
             }
         }
@@ -137,11 +156,19 @@ void ChunkManager::update(const glm::vec3& playerPos, int viewDistance, GameObje
 
     ScopeTimer timer("ChunkManager::updateActiveChunks");
 
-    for (const auto& [coord, objectId] : newActiveChunks) {
+    newChunksMutex.lock();
+    while (!newChunks.empty()) {
+        auto chunk = newChunks.front();
+        newChunks.pop();
+        ChunkCoord coord = chunk->getChunkCoord();
+        
         if (m_activeChunks.find(coord) == m_activeChunks.end()) {
+            GameObject::id_t objectId = chunk->getGameObject()->getId();
             m_activeChunks[coord] = objectId;
+            gameObjects[objectId] = chunk->getGameObject();
         }
     }
+    newChunksMutex.unlock();
     
     std::vector<ChunkCoord> chunksToRemove;
     for (const auto& [coord, objectId] : m_activeChunks) {

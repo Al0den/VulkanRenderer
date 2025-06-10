@@ -37,7 +37,7 @@ public:
     bool queueChunkTerrainGeneration(std::shared_ptr<Chunk> chunk);
     bool queueChunkMeshGeneration(std::shared_ptr<Chunk> chunk);
     bool updateGameObject(std::shared_ptr<Chunk> chunk);
-    bool updateActiveChunks(std::unordered_map<ChunkCoord, GameObject::id_t, ChunkCoord::Hash>& newActiveChunks, GameObject::Map& gameObjects, std::shared_ptr<Chunk> chunk);
+    bool updateActiveChunks(GameObject::Map& gameObjects, std::shared_ptr<Chunk> chunk);
 
 
     void regenerateEntireMesh();
@@ -71,6 +71,7 @@ private:
     void chunksMeshUpdateThread();
     void chunksCreationThread();
     void chunksPushThread();
+    void loopOverChunksThread(const glm::vec3& playerPos, int viewDistance, GameObject::Map& gameObjects);
 
     std::atomic<bool> stopThreads{false};
 
