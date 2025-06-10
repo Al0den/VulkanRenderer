@@ -95,8 +95,9 @@ void App::run() {
             
             {
                 ScopeTimer timer("ChunkManager");
-                
-                chunkManager->update(viewerObject->transform.translation, config().getInt("render_distance"), gameObjects);
+                if(frameCount % 20 == 0) {
+                    chunkManager->update(viewerObject->transform.translation, config().getInt("render_distance"), gameObjects);
+                }   
             }
             
             imgui.newFrame();
@@ -117,6 +118,8 @@ void App::run() {
             imgui.render(commandBuffer);
             renderer.endSwapChainRenderPass(commandBuffer); 
             renderer.endFrame();
+
+            frameCount++;
         }
     }
 

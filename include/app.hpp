@@ -29,6 +29,7 @@ class App {
         void run();
 
     private:
+        long frameCount = 0;
         void loadGameObjects();
 
         Window window{WIDTH, HEIGHT, "Vulkan"};

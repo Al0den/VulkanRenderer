@@ -57,6 +57,7 @@ private:
     std::queue<std::shared_ptr<Chunk>> chunksNeedingTerrainGeneration;
     std::queue<std::shared_ptr<Chunk>> chunksNeedingMeshUpdate;
     std::queue<std::shared_ptr<Chunk>> chunksNeedingPush;
+    std::queue<std::shared_ptr<Chunk>> newChunks;
 
     std::vector<std::thread> threads;
 
@@ -82,6 +83,7 @@ private:
     std::mutex terrainMutex;
     std::mutex meshMutex;
     std::mutex pushMutex;
+    std::mutex newChunksMutex;
     
     void stopAllThreads();
 
